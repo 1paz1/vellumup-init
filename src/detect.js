@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 // Only the packages every full-blog user needs regardless of their database.
-// @supabase/supabase-js is deliberately NOT here: the generated pages are
+// @supabase/supabase-js is deliberately NOT here: the generated code is
 // wired for Supabase by default, but Supabase itself is optional - users on
 // another database swap the data-access functions instead, so forcing the
 // client on everyone would be wrong. Supabase users are told to install it
@@ -27,6 +27,7 @@ const BLOG_DEPENDENCIES = ['react-markdown', 'remark-gfm'];
  *   i18n: boolean,
  *   packageManager: 'npm' | 'yarn' | 'pnpm' | 'bun',
  *   missingDeps: string[],
+ *   hasSupabaseClient: boolean,
  * }}
  */
 export function detectProject(cwd) {
@@ -68,6 +69,10 @@ export function detectProject(cwd) {
     i18n: detectI18n(cwd, baseDir, deps),
     packageManager: detectPackageManager(cwd),
     missingDeps: BLOG_DEPENDENCIES.filter((dep) => !deps[dep]),
+    // Not auto-installed (see BLOG_DEPENDENCIES) - tracked so the run can
+    // end by telling the user to either add it or swap the generated
+    // Supabase calls for their own database.
+    hasSupabaseClient: Boolean(deps['@supabase/supabase-js']),
   };
 }
 

@@ -18,7 +18,7 @@ Full blog mode (the default, App Router):
 ```text
 your-project/
 ├── app/
-│   ├── api/vellumup/route.ts     # webhook receiver (HMAC-verified)
+│   ├── api/vellumup/route.ts     # webhook receiver: verifies HMAC, stores the article
 │   └── blog/
 │       ├── page.tsx              # paginated blog index
 │       └── [slug]/page.tsx       # article page (ToC, key takeaways, related posts)
@@ -31,8 +31,15 @@ your-project/
 └── .env.local                    # VELLUMUP_WEBHOOK_SECRET= and Supabase keys appended
 ```
 
+This runs end to end with no code left to write: the route upserts each
+delivered article into the `articles` table, and the pages read from it. Run
+the SQL, fill in the keys, and publishing in VellumUp puts a post on your site.
+
 "Webhook route only" mode writes just the receiver route, the SQL file, and the
-`VELLUMUP_WEBHOOK_SECRET=` placeholder - for projects that already have their own blog.
+`VELLUMUP_WEBHOOK_SECRET=` placeholder - for projects that already have their
+own blog. That route is database-agnostic: it verifies the signature and hands
+you two empty functions (`upsertArticle`, `markArticleDraft`) to point at
+whatever store you already use.
 
 ## Requirements
 
@@ -47,25 +54,26 @@ your-project/
 
 ## The prompts
 
-The CLI asks at most two questions, each only when it applies:
+The CLI asks up to three questions, each only when it applies:
 
 1. **What should we set up?** Full blog (recommended) or webhook route only.
    Skipped for Pages Router projects (route only, with an explanation).
 2. **How should existing files be handled?** Asked only when a target file
    already exists: skip (default), overwrite all, or cancel.
+3. **Install the missing rendering dependencies?** (`react-markdown`,
+   `remark-gfm`) Asked only in full blog mode when either is missing;
+   installed with your project's own package manager (detected from the
+   lockfile) if you say yes. Route-only mode installs nothing.
 
 Language is never asked: the blog pages always filter articles by
 `language_code` (default `en`, or whatever you pass with `--lang`), and the
 generated filter line carries a comment showing multi-language sites exactly
 what to swap for a dynamic locale - see the FAQ.
 
-Missing rendering dependencies (`react-markdown`, `remark-gfm`) are installed
-for you after a confirm, using your project's own package manager (detected
-from the lockfile). `@supabase/supabase-js` is deliberately NOT auto-installed:
-the generated pages are Supabase-based code by default, but Supabase itself is
-optional - install the client yourself only if you use it (the CLI's final
-output tells you exactly when and how), or adapt the pages to whatever
-database you have.
+`@supabase/supabase-js` is never installed for you. Full blog mode generates
+Supabase code as its default wiring, so if you use Supabase you install the
+client yourself; if you use anything else you replace those calls instead.
+Either way the CLI ends by telling you which one you still need to do.
 
 ## Flags
 
@@ -82,15 +90,19 @@ database you have.
 The CLI prints these as numbered next steps, with your exact paths:
 
 1. Run `vellumup/articles.sql` against your database (Supabase SQL Editor,
-   psql, or any PostgreSQL client - adapt it if you use a different database).
-2. Using Supabase? Install its client (`npm install @supabase/supabase-js`)
-   and fill `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` in
-   `.env.local`. Using your own database? Skip this - see the FAQ.
-3. Deploy your site.
-4. In the VellumUp dashboard open **Integrations > Next.js > Add endpoint**
+   psql, or any client) to create the `articles` table.
+2. Already have `@supabase/supabase-js`? Just fill `NEXT_PUBLIC_SUPABASE_URL`,
+   `NEXT_PUBLIC_SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY` in
+   `.env.local` (Supabase dashboard: Project Settings > API) - the route
+   needs these to write. Don't have it? Install it first
+   (`npm install @supabase/supabase-js`), or if you use a different
+   database, replace the route's two functions and the pages' data-access
+   functions instead - see the FAQ.
+3. In the VellumUp dashboard open **Integrations > Next.js > Add endpoint**
    and point it at `https://your-domain.com/api/vellumup`.
-5. Copy the secret (shown once) into `VELLUMUP_WEBHOOK_SECRET` - in `.env.local` and in
+4. Copy the secret (shown once) into `VELLUMUP_WEBHOOK_SECRET` - in `.env.local` and in
    your hosting provider's env vars.
+5. Deploy your site.
 6. Click **Test connection**, publish an article, visit `/blog`.
 
 ## FAQ
@@ -118,21 +130,27 @@ files. Swap the `createClient(...)` block for your own import if you prefer -
 each file has a comment marking the spot.
 
 **I don't use Supabase at all.**
-That's fine - the generated pages are Supabase-based code by default, but that
-is a starting point, not a requirement (which is also why the CLI never
-auto-installs `@supabase/supabase-js`). Two small adaptations and you're done:
+That's fine - the generated code is Supabase-based by default, but that is a
+starting point, not a requirement (which is also why the CLI never
+auto-installs `@supabase/supabase-js`). Three small adaptations:
 
 1. The schema: `vellumup/articles.sql` is standard PostgreSQL, so it runs
    as-is on any Postgres (Neon, RDS, self-hosted, ...). For MySQL/SQLite/an
    ORM, recreate the same columns - the important part is the
    `unique (slug, language_code)` key the webhook upserts against.
-2. The pages: each blog page has three small data-access functions
-   (`getArticle`, `getPosts`, `getRelatedPosts`). Replace their Supabase
-   queries with your own ORM/driver calls returning the same fields, delete
-   the inline `createClient(...)` block, and everything else works unchanged.
+2. The route: `app/api/vellumup/route.ts` has `upsertArticle()` and
+   `markArticleDraft()` in a clearly marked block. Point them at your own
+   database and drop the `createClient` import. Everything above that block -
+   signature verification, the event switch, the responses - is
+   database-agnostic and stays as-is.
+3. The pages: `app/blog/page.tsx` has `getPosts`; `app/blog/[slug]/page.tsx`
+   has `getArticle` and `getRelatedPosts`. Replace their Supabase queries
+   with your own ORM/driver calls returning the same fields, and delete each
+   file's inline `createClient(...)` block.
 
-The webhook route itself is database-agnostic either way - its TODO block is
-where you map incoming articles into whatever store you use.
+If you pick "webhook route only" instead, the route you get is already
+database-agnostic: the same two functions are there, empty, waiting for your
+implementation - no Supabase code to remove.
 
 **Pages Router?**
 The webhook route works on both routers. The blog pages are App Router server

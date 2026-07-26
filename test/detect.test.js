@@ -159,9 +159,22 @@ test('missing deps lists only absent blog dependencies', () => {
 });
 
 // @supabase/supabase-js must never be auto-installed - Supabase is the
-// default wiring of the generated pages, not a requirement, so the client is
-// a manual step for Supabase users only (communicated in the outro).
+// default wiring of the generated code, not a requirement, so the client
+// stays a deliberate choice the user makes (or replaces).
 test('supabase client is not part of the auto-installed dependencies', () => {
   const cwd = fixture({ 'package.json': NEXT_PKG, 'app/layout.tsx': '' });
   assert.ok(!detectProject(cwd).missingDeps.includes('@supabase/supabase-js'));
+});
+
+test('hasSupabaseClient reflects whether the client is already installed', () => {
+  const without = fixture({ 'package.json': NEXT_PKG, 'app/layout.tsx': '' });
+  assert.equal(detectProject(without).hasSupabaseClient, false);
+
+  const withClient = fixture({
+    'package.json': JSON.stringify({
+      dependencies: { next: '15', '@supabase/supabase-js': '2' },
+    }),
+    'app/layout.tsx': '',
+  });
+  assert.equal(detectProject(withClient).hasSupabaseClient, true);
 });

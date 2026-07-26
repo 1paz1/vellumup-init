@@ -1,7 +1,6 @@
 // pages/api/vellumup.ts
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { createHmac, timingSafeEqual } from 'crypto';
-import { createClient } from '@supabase/supabase-js';
 
 export const config = {
   api: { bodyParser: false }, // we need the raw body to verify the signature
@@ -58,84 +57,37 @@ interface VellumUpPayload {
 
 // ── Storing articles ─────────────────────────────────────────────────────
 //
-// Everything in this block is the Supabase implementation - the default
-// wiring, matching vellumup/articles.sql. It is the only part of this file
-// tied to a specific database.
+// These two functions are the only part left to write. Fill them in with
+// calls to whatever database or CMS you already use - Postgres, MySQL,
+// Prisma, Drizzle, Mongo, a headless CMS API, anything.
 //
-// Using something else (plain Postgres, MySQL, Prisma, Drizzle, Mongo, ...)?
-// Replace the two functions below with your own upsert/update calls and drop
-// the createClient import above. Nothing else in this file changes: the
-// signature check, the event switch and the response handling are all
-// database-agnostic.
-//
-// Why the service-role key: vellumup/articles.sql turns on Row Level
-// Security with a public read-only policy, so the anon key cannot write.
-// The service-role key bypasses RLS and must never reach the browser - it is
-// safe here because API routes only ever run on the server. If you are not
-// on Supabase you almost certainly do not need an equivalent: your own
-// connection string already carries write access.
+// vellumup/articles.sql (written alongside this file) has a ready-made
+// Postgres schema if you want a starting point. Adapt it freely - the only
+// thing that matters is that an article is uniquely identified by its slug
+// AND language_code together, since each translation arrives as its own
+// delivery sharing the base article's slug.
 
-function createServiceClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) return null;
-  return createClient(url, key, { auth: { persistSession: false } });
-}
-
-// Upsert on (slug, language_code) - the unique key in articles.sql. Each
-// translation is its own row sharing the base article's slug, so a
-// translated article never overwrites the original.
 async function upsertArticle(data: VellumUpArticleData): Promise<void> {
-  const supabase = createServiceClient();
-  if (!supabase) return;
-
-  const { error } = await supabase.from('articles').upsert(
-    {
-      vellumup_id: data.id,
-      slug: data.slug,
-      language_code: data.language_code ?? 'en',
-      language_name: data.language_name ?? null,
-      title: data.title,
-      content: data.content,
-      status: data.status ?? 'published',
-      cover_image: data.cover_image ?? null,
-      cover_image_url: data.cover_image_url ?? null,
-      meta_description: data.meta_description ?? null,
-      focus_keyword: data.focus_keyword ?? null,
-      secondary_keywords: data.secondary_keywords ?? [],
-      key_takeaways: data.key_takeaways ?? [],
-      internal_link_slugs: data.internal_link_slugs ?? [],
-      word_count: data.word_count ?? null,
-      reading_time_minutes: data.reading_time_minutes ?? null,
-      website_url: data.website_url ?? null,
-      website_domain: data.website_domain ?? null,
-      og_title: data.og_title ?? null,
-      og_description: data.og_description ?? null,
-      og_type: data.og_type ?? null,
-      created_at: data.created_at ?? new Date().toISOString(),
-      updated_at: data.updated_at ?? new Date().toISOString(),
-    },
-    { onConflict: 'slug,language_code' },
-  );
-  if (error) throw error;
+  // Insert the article, or update it if a row with this slug +
+  // language_code already exists. Roughly:
+  //
+  //   await db.article.upsert({
+  //     where:  { slug_languageCode: { slug: data.slug, languageCode: data.language_code ?? 'en' } },
+  //     create: { ...mapFields(data) },
+  //     update: { ...mapFields(data) },
+  //   });
+  console.log('[vellumup] TODO: store article', data.slug, data.language_code ?? 'en');
 }
 
-// Unpublish rather than delete, so anything already built or cached on your
-// site can fall back to a draft state instead of 404ing.
 async function markArticleDraft(slug: string, languageCode = 'en'): Promise<void> {
-  const supabase = createServiceClient();
-  if (!supabase) return;
-
-  const { error } = await supabase
-    .from('articles')
-    .update({ status: 'draft', updated_at: new Date().toISOString() })
-    .eq('slug', slug)
-    .eq('language_code', languageCode);
-  if (error) throw error;
-}
-
-function isStorageConfigured(): boolean {
-  return Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY);
+  // Unpublish rather than delete, so anything already built or cached on
+  // your site can fall back to a draft state instead of 404ing. Roughly:
+  //
+  //   await db.article.update({
+  //     where: { slug_languageCode: { slug, languageCode } },
+  //     data:  { status: 'draft' },
+  //   });
+  console.log('[vellumup] TODO: unpublish article', slug, languageCode);
 }
 
 // ── Signature verification ───────────────────────────────────────────────
@@ -197,20 +149,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return;
   }
 
-  if (!isStorageConfigured()) {
-    // Still a 200: the endpoint itself is reachable and the signature was
-    // valid, so there is nothing for VellumUp to retry or flag. The article
-    // just was not stored.
-    console.warn(
-      '[vellumup] Article received but not stored - no database configured.\n' +
-        'Fill NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in your\n' +
-        'environment, or replace upsertArticle()/markArticleDraft() in this\n' +
-        'file with calls to whatever database you use.',
-    );
-    res.status(200).json({ received: true, stored: false });
-    return;
-  }
-
   try {
     switch (event) {
       case 'article.published':
@@ -225,12 +163,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         console.warn('[vellumup] unhandled event type:', event);
     }
   } catch (err) {
-    // 500 tells you something is genuinely wrong (bad credentials, missing
-    // table, schema mismatch) instead of silently dropping articles.
+    // 500 tells you something is genuinely wrong instead of silently
+    // dropping articles.
     console.error('[vellumup] failed to store article:', err);
     res.status(500).json({ error: 'storage_failed' });
     return;
   }
 
-  res.status(200).json({ received: true, stored: true });
+  res.status(200).json({ received: true });
 }

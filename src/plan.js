@@ -24,17 +24,23 @@ export function buildFilePlan(detection, answers) {
   const target = (...segments) => path.join(baseDir, ...segments);
   const plan = [];
 
-  // Webhook receiver route - always written, path depends on the router.
+  // Webhook receiver route - always written; the path depends on the router
+  // and the variant depends on the mode. Full blog gets a route that writes
+  // straight into the articles table the blog pages read from, so the whole
+  // thing works end to end with no code left to fill in. Route-only gets a
+  // database-agnostic version with two empty functions to implement, since
+  // those users are wiring the payload into a store we know nothing about.
+  const routeVariant = answers.mode === 'full' ? '' : '-route-only';
   if (router === 'app') {
     plan.push({
-      templatePath: template('app-router', 'api', 'vellumup', 'route.ts'),
+      templatePath: template(`app-router${routeVariant}`, 'api', 'vellumup', 'route.ts'),
       targetPath: target('app', 'api', 'vellumup', 'route.ts'),
       label: 'Webhook route',
       transforms: {},
     });
   } else {
     plan.push({
-      templatePath: template('pages-router', 'api', 'vellumup.ts'),
+      templatePath: template(`pages-router${routeVariant}`, 'api', 'vellumup.ts'),
       targetPath: target('pages', 'api', 'vellumup.ts'),
       label: 'Webhook route',
       transforms: {},

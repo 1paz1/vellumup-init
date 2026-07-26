@@ -4,8 +4,6 @@
 -- one thing the webhook relies on is the UNIQUE (slug, language_code) key it
 -- upserts against. The RLS block at the bottom is only meaningful on
 -- Supabase/Postgres - drop it elsewhere and protect writes your own way.
---
--- Matches the upsert snippet exactly, including the UNIQUE key it needs.
 create table if not exists public.articles (
   id                   uuid primary key default gen_random_uuid(),
   vellumup_id          uuid,

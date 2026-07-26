@@ -145,9 +145,17 @@ export async function run(argv) {
   }, cwd);
   results.push(writeSqlFile(sqlFilePlan(cwd), cwd));
 
+  // SUPABASE_SERVICE_ROLE_KEY (no NEXT_PUBLIC_ prefix - it must stay
+  // server-side) is what lets the webhook route write through the table's
+  // row-level security. The two public keys cover the blog pages' reads.
   const envKeys =
     mode === 'full'
-      ? ['VELLUMUP_WEBHOOK_SECRET', 'NEXT_PUBLIC_SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_ANON_KEY']
+      ? [
+          'VELLUMUP_WEBHOOK_SECRET',
+          'NEXT_PUBLIC_SUPABASE_URL',
+          'NEXT_PUBLIC_SUPABASE_ANON_KEY',
+          'SUPABASE_SERVICE_ROLE_KEY',
+        ]
       : ['VELLUMUP_WEBHOOK_SECRET'];
   const envResults = ensureEnvVars(cwd, envKeys);
   spinner.stop('Files written');
@@ -178,6 +186,32 @@ export async function run(argv) {
         'Promise (the Next 15 convention). They run fine on 14, but if next build\n' +
         'complains about the params type, remove the "await" and Promise wrapper.',
       'Next.js version',
+    );
+  }
+  // The generated route and pages import @supabase/supabase-js. It is not
+  // installed automatically because Supabase is the default wiring, not a
+  // requirement - so say plainly what to do either way.
+  if (mode === 'full' && !detection.hasSupabaseClient) {
+    p.note(
+      'The generated route and blog pages are written against Supabase, which\n' +
+        `is not installed here yet. Either add it:\n` +
+        `  ${pc.cyan(installCommand(detection.packageManager, ['@supabase/supabase-js']))}\n` +
+        'or, if you use a different database, replace the Supabase calls with\n' +
+        'your own: upsertArticle()/markArticleDraft() in the route, and the\n' +
+        'data-access functions in the two blog pages. Each file marks the spot.',
+      'Database client',
+    );
+  }
+  // Detected i18n but the blog pages filter by one fixed language code - the
+  // injected filter line carries a comment marking exactly where to make it
+  // dynamic (e.g. keyed off a [locale] route segment).
+  if (mode === 'full' && detection.i18n) {
+    p.note(
+      'Your project looks multi-language, but the blog pages filter articles\n' +
+        `by a single fixed language ('${lang}'). Want articles in every language?\n` +
+        "Swap that filter for your locale - each file marks the exact line\n" +
+        '("swap \'' + lang + '\' for your locale param").',
+      'Multiple languages',
     );
   }
 
@@ -213,7 +247,14 @@ export async function run(argv) {
   // ── Next steps ───────────────────────────────────────────────────────────
   const routePath = '/api/vellumup';
   console.log(`\n${pc.bold('Next steps')}\n`);
-  console.log(renderNextSteps({ mode, installFailedCommand, routePath }));
+  console.log(
+    renderNextSteps({
+      mode,
+      installFailedCommand,
+      routePath,
+      hasSupabaseClient: detection.hasSupabaseClient,
+    }),
+  );
   console.log();
   p.outro(
     mode === 'full'
