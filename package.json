@@ -1,0 +1,39 @@
+{
+  "name": "vellumup-init",
+  "version": "1.0.0",
+  "description": "Scaffold a complete VellumUp-powered blog (webhook route, pages, components, SQL) into your Next.js project with one command.",
+  "type": "module",
+  "author": "VellumUp (https://vellumup.com)",
+  "bin": {
+    "vellumup-init": "./bin/vellumup-init.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "templates"
+  ],
+  "engines": {
+    "node": ">=18.3"
+  },
+  "scripts": {
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@clack/prompts": "^0.11.0",
+    "picocolors": "^1.1.1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/1paz1/vellumup-init.git"
+  },
+  "keywords": [
+    "vellumup",
+    "nextjs",
+    "blog",
+    "webhook",
+    "scaffold",
+    "supabase",
+    "seo"
+  ],
+  "license": "MIT"
+}
