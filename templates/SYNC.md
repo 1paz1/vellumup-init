@@ -33,12 +33,19 @@ One command per constant (adjust import + output path per the mapping table).
 
 ## Allowed deltas (the ONLY intentional differences from lucidseo)
 
-1. A `SYNC-RULE` header comment at the top of every file, pointing back at its source.
+1. A `SYNC-RULE` header comment at the top of every file, pointing back at its source
+   (the two blog pages' headers additionally carry a "Data layer: Supabase-based by
+   default - adapt to your own database" note).
 2. Em-dash characters replaced with plain hyphens throughout.
 3. In the two blog pages only: `// __VELLUMUP_LANG_FILTER__` placeholder lines inserted
    directly after each `.eq('status', 'published')` call - exactly **3 total**
    (index `getPosts`; article `getArticle` + `getRelatedPosts`). The CLI replaces each
    with `.eq('language_code', '<code>')` at install time. A unit test in `test/`
    asserts the count is exactly 3, so a bad re-extraction fails the test run.
+4. In `sql/articles.sql` only: the lucidseo header line "Run once in the Supabase SQL
+   Editor (or psql)." is replaced by a longer database-agnostic note (standard
+   PostgreSQL, works with any client, how to adapt for non-Postgres stores, RLS block
+   is Supabase/Postgres-specific). Supabase is the default wiring, not a requirement -
+   the CLI's README and outro text follow the same framing.
 
-After re-extracting, re-apply all three deltas before committing.
+After re-extracting, re-apply all four deltas before committing.

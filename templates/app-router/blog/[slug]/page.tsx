@@ -1,6 +1,12 @@
 // SYNC-RULE: mirrored from lucidseo lib/catalog-items/full-article-page/wired-example.ts (WIRED_ARTICLE_PAGE).
 // Edit both in the same commit - see templates/SYNC.md for the extraction recipe.
 // Known deltas here: this header, em-dashes replaced with hyphens, and two language-filter placeholder lines (replaced by the CLI at install time).
+//
+// Data layer: this is Supabase-based code by default - a starting point, not
+// a requirement. Using another database or an ORM? Delete the inline
+// createClient(...) block and rewrite the small data-access functions below
+// (getArticle, getRelatedPosts) to return the same fields from whatever
+// store you have - the rest of the page works unchanged.
 // app/blog/[slug]/page.tsx
 //
 // Renders one article fetched from the "articles" table your vellumup-webhook

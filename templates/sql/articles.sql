@@ -1,6 +1,13 @@
 -- SYNC-RULE: mirrored from lucidseo lib/catalog-items/webhook-route/db-snippets.ts (ARTICLES_TABLE_SQL).
 -- Edit both in the same commit - see templates/SYNC.md for the extraction recipe.
--- Run once in the Supabase SQL Editor (or psql).
+--
+-- Standard PostgreSQL - run it once with whatever client you use: the
+-- Supabase SQL Editor, psql, Neon/RDS console, anything. Using a different
+-- database (MySQL, SQLite, an ORM schema)? Recreate the same columns - the
+-- one thing the webhook relies on is the UNIQUE (slug, language_code) key it
+-- upserts against. The RLS block at the bottom is only meaningful on
+-- Supabase/Postgres - drop it elsewhere and protect writes your own way.
+--
 -- Matches the upsert snippet exactly, including the UNIQUE key it needs.
 create table if not exists public.articles (
   id                   uuid primary key default gen_random_uuid(),

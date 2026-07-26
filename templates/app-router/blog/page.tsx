@@ -1,6 +1,12 @@
 // SYNC-RULE: mirrored from lucidseo lib/catalog-items/full-article-page/wired-example.ts (WIRED_BLOG_INDEX_PAGE).
 // Edit both in the same commit - see templates/SYNC.md for the extraction recipe.
 // Known deltas here: this header, em-dashes replaced with hyphens, and the language-filter placeholder line (replaced by the CLI at install time).
+//
+// Data layer: this is Supabase-based code by default - a starting point, not
+// a requirement. Using another database or an ORM? Delete the inline
+// createClient(...) block and rewrite the small data-access function below
+// (getPosts) to return the same fields from whatever store you have - the
+// rest of the page works unchanged.
 // app/blog/page.tsx
 //
 // Lists published articles as a paginated card grid, using the same

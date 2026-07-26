@@ -13,8 +13,9 @@ export const HELP_TEXT = `
     --route-only     Set up only the webhook receiver route (no blog pages,
                      components, or dependency install)
     --lang <code>    Language code the blog pages filter by, e.g. en, fr, he.
-                     Defaults to "en"; only asked interactively when your
-                     project already uses i18n.
+                     Defaults to "en" and is never asked interactively - the
+                     generated filter line carries a comment showing
+                     multi-language sites exactly what to swap.
     --no-install     Never run the package manager, even for missing deps
     --help           Show this message
     --version        Show the CLI version

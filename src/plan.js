@@ -74,6 +74,6 @@ export function sqlFilePlan(cwd) {
   return {
     templatePath: path.join(TEMPLATES_DIR, 'sql', 'articles.sql'),
     targetPath: path.join(cwd, 'vellumup', 'articles.sql'),
-    label: 'Supabase schema (run manually)',
+    label: 'Database schema (run manually)',
   };
 }

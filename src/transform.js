@@ -17,7 +17,7 @@ export function applyLangFilter(source, langCode) {
   const placeholderLine = new RegExp(`^([ \\t]*)// ${LANG_PLACEHOLDER}[ \\t]*$`, 'gm');
   return source.replace(
     placeholderLine,
-    `$1.eq('language_code', '${escaped}') // multi-language? swap '${escaped}' for your locale param`,
+    `$1.eq('language_code', '${escaped}') // multi-language? each translation is stored under its own language_code - swap '${escaped}' for your locale param`,
   );
 }
 

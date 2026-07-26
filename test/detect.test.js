@@ -155,5 +155,13 @@ test('missing deps lists only absent blog dependencies', () => {
     }),
     'app/layout.tsx': '',
   });
-  assert.deepEqual(detectProject(cwd).missingDeps, ['@supabase/supabase-js', 'remark-gfm']);
+  assert.deepEqual(detectProject(cwd).missingDeps, ['remark-gfm']);
+});
+
+// @supabase/supabase-js must never be auto-installed - Supabase is the
+// default wiring of the generated pages, not a requirement, so the client is
+// a manual step for Supabase users only (communicated in the outro).
+test('supabase client is not part of the auto-installed dependencies', () => {
+  const cwd = fixture({ 'package.json': NEXT_PKG, 'app/layout.tsx': '' });
+  assert.ok(!detectProject(cwd).missingDeps.includes('@supabase/supabase-js'));
 });

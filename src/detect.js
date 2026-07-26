@@ -1,7 +1,13 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-const BLOG_DEPENDENCIES = ['@supabase/supabase-js', 'react-markdown', 'remark-gfm'];
+// Only the packages every full-blog user needs regardless of their database.
+// @supabase/supabase-js is deliberately NOT here: the generated pages are
+// wired for Supabase by default, but Supabase itself is optional - users on
+// another database swap the data-access functions instead, so forcing the
+// client on everyone would be wrong. Supabase users are told to install it
+// in the next-steps outro (see steps.js).
+const BLOG_DEPENDENCIES = ['react-markdown', 'remark-gfm'];
 
 /**
  * Inspect the target project once, up front. Every downstream decision

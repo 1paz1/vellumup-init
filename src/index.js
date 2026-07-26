@@ -12,7 +12,6 @@ import { runInstall, installCommand } from './install.js';
 import { renderNextSteps } from './steps.js';
 
 const DEFAULT_LANG = 'en';
-const LANG_CODE_PATTERN = /^[a-z]{2,3}(-[A-Za-z]{2,4})?$/;
 
 export async function run(argv) {
   const options = parseCliArgs(argv);
@@ -92,32 +91,12 @@ export async function run(argv) {
   }
 
   // ── Language ─────────────────────────────────────────────────────────────
-  // The filter is always injected (see transform.js for why). The question is
-  // only worth asking when the project demonstrably uses i18n; everyone else
-  // gets "en" without ever thinking about it.
-  let lang = options.lang ?? DEFAULT_LANG;
-  if (mode === 'full' && detection.i18n && !options.lang) {
-    if (options.yes) {
-      p.note(
-        `Your project uses i18n - the blog will filter articles by "${DEFAULT_LANG}".\n` +
-          'Re-run with --lang <code> to pick a different language.',
-        'Language',
-      );
-    } else {
-      lang = guard(
-        await p.text({
-          message: 'Your project uses i18n. Which language code should the blog show?',
-          placeholder: DEFAULT_LANG,
-          defaultValue: DEFAULT_LANG,
-          validate: (value) => {
-            if (value && !LANG_CODE_PATTERN.test(value)) {
-              return 'Expected a language code like "en", "fr" or "pt-BR"';
-            }
-          },
-        }),
-      );
-    }
-  }
+  // Never asked interactively. The filter is always injected (see
+  // transform.js for why) with "en" as the default - and the injected line
+  // itself carries a comment telling multi-language sites exactly what to
+  // swap, so the generated code is the documentation. Power users can still
+  // pick a different code up front with --lang.
+  const lang = options.lang ?? DEFAULT_LANG;
 
   // ── Conflicts ────────────────────────────────────────────────────────────
   const filePlan = buildFilePlan(detection, { mode, lang });
