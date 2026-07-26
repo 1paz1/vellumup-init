@@ -1,8 +1,9 @@
 {
   "name": "vellumup-init",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Scaffold a complete VellumUp-powered blog (webhook route, pages, components, SQL) into your Next.js project with one command.",
   "type": "module",
+  "author": "VellumUp (https://vellumup.com)",
   "bin": {
     "vellumup-init": "./bin/vellumup-init.js"
   },

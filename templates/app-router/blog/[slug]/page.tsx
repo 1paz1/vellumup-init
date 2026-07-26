@@ -1,35 +1,24 @@
-// SYNC-RULE: mirrored from lucidseo lib/catalog-items/full-article-page/wired-example.ts (WIRED_ARTICLE_PAGE).
-// Edit both in the same commit - see templates/SYNC.md for the extraction recipe.
-// Known deltas here: this header, em-dashes replaced with hyphens, and two language-filter placeholder lines (replaced by the CLI at install time).
+// app/blog/[slug]/page.tsx
+//
+// Renders one article fetched from the "articles" table your webhook route
+// saves to.
 //
 // Data layer: this is Supabase-based code by default - a starting point, not
 // a requirement. Using another database or an ORM? Delete the inline
 // createClient(...) block and rewrite the small data-access functions below
 // (getArticle, getRelatedPosts) to return the same fields from whatever
 // store you have - the rest of the page works unchanged.
-// app/blog/[slug]/page.tsx
 //
-// Renders one article fetched from the "articles" table your vellumup-webhook
-// route saved to (see the "Webhook Route" and "Database Table" tabs), using
-// the same catalog components as the standalone demo - fed real data instead
-// of hardcoded sample content.
-//
-// Already have a Supabase client elsewhere in your project? Delete the
-// createClient(...) line below and import yours instead - this inline
-// version exists so this file runs with zero other files if you don't.
-//
-// Everything lives in this one file, same as VellumUp's own production blog
-// page (app/[locale]/blog/[slug]/page.tsx) - no separate client wrapper.
+// Everything lives in this one file - no separate client wrapper.
 // PillTableOfContents is already its own 'use client' component, so a plain
 // async Server Component (this page) can render it directly as a child;
 // there's no need for this page (or anything around it) to be 'use client'
-// itself, same as VellumUp's own page does with BlogToc/BlogTocMobile.
+// itself.
 import { cache } from 'react';
 import { notFound } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { BlogPostLayout } from '@/components/BlogPostLayout';
 import { BlogSection } from '@/components/BlogSection';
 import { BlogKeyTakeaways } from '@/components/BlogKeyTakeaways';
 import { PillTableOfContents } from '@/components/PillTableOfContents';
@@ -48,6 +37,10 @@ interface Article {
   reading_time_minutes: number | null;
   created_at: string;
   key_takeaways: { takeaway: string; _heading?: string }[] | null;
+  // Slugs of other articles the AI linked to inline, from the webhook
+  // payload's internal_link_slugs - see getRelatedPosts below for how these
+  // drive "Related articles" instead of just showing the newest posts.
+  internal_link_slugs: string[] | null;
 }
 
 interface RelatedPost {
@@ -64,7 +57,7 @@ interface RelatedPost {
 const getArticle = cache(async (slug: string): Promise<Article | null> => {
   const { data } = await supabase
     .from('articles')
-    .select('slug, title, content, cover_image, meta_description, reading_time_minutes, created_at, key_takeaways')
+    .select('slug, title, content, cover_image, meta_description, reading_time_minutes, created_at, key_takeaways, internal_link_slugs')
     .eq('slug', slug)
     .eq('status', 'published')
     // __VELLUMUP_LANG_FILTER__
@@ -72,16 +65,48 @@ const getArticle = cache(async (slug: string): Promise<Article | null> => {
   return data;
 });
 
-async function getRelatedPosts(excludeSlug: string): Promise<RelatedPost[]> {
-  const { data } = await supabase
+const RELATED_POSTS_LIMIT = 3;
+
+// Prefers the specific articles the AI actually linked to from within this
+// article's body (internal_link_slugs on the webhook payload) - these are
+// genuinely related by content, not just recent. If that gives fewer than
+// RELATED_POSTS_LIMIT (or none at all - e.g. a brand-new site too small yet
+// for the AI to link between articles), tops the list up with the newest
+// other articles so the section still shows a full row whenever enough
+// published articles exist, instead of stopping short at 1-2 posts.
+async function getRelatedPosts(excludeSlug: string, internalLinkSlugs: string[]): Promise<RelatedPost[]> {
+  const linked: RelatedPost[] = [];
+
+  if (internalLinkSlugs.length > 0) {
+    const { data } = await supabase
+      .from('articles')
+      .select('slug, title, cover_image, meta_description, focus_keyword, created_at')
+      .eq('status', 'published')
+      // __VELLUMUP_LANG_FILTER__
+      .neq('slug', excludeSlug)
+      .in('slug', internalLinkSlugs)
+      .order('created_at', { ascending: false })
+      .limit(RELATED_POSTS_LIMIT);
+    linked.push(...(data ?? []));
+  }
+
+  if (linked.length >= RELATED_POSTS_LIMIT) return linked;
+
+  // Excluding already-included slugs client-side (rather than a `.not(...in...)`
+  // filter built from a raw joined string) sidesteps any need to escape
+  // slugs for a PostgREST filter - fetch a few extra so there's still enough
+  // left after filtering out the current article and any already-linked ones.
+  const alreadyIncluded = new Set([excludeSlug, ...linked.map(post => post.slug)]);
+  const { data: fillerData } = await supabase
     .from('articles')
     .select('slug, title, cover_image, meta_description, focus_keyword, created_at')
     .eq('status', 'published')
     // __VELLUMUP_LANG_FILTER__
-    .neq('slug', excludeSlug)
     .order('created_at', { ascending: false })
-    .limit(2);
-  return data ?? [];
+    .limit(RELATED_POSTS_LIMIT + alreadyIncluded.size);
+
+  const filler = (fillerData ?? []).filter(post => !alreadyIncluded.has(post.slug));
+  return [...linked, ...filler.slice(0, RELATED_POSTS_LIMIT - linked.length)];
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
@@ -101,14 +126,14 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 }
 
 // Endpoints set to HTML content format deliver ready HTML; the default is
-// Markdown. Same detection VellumUp's own blog uses.
+// Markdown.
 function isHtmlContent(content: string): boolean {
   return /<(p|h[1-6]|ul|ol|li|blockquote|figure|div|table|strong|em|a)\b/i.test(content.trimStart());
 }
 
-// Same slugify VellumUp's own blog page uses - deterministic, so the id a
-// heading gets here always matches the id extractHeadings() below assigns
-// the same heading text, with zero extra data needed from the webhook.
+// Deterministic slugify, so the id a heading gets here always matches the id
+// extractHeadings() below assigns the same heading text, with zero extra
+// data needed from the webhook.
 function slugify(text: string): string {
   return text
     .toLowerCase()
@@ -129,11 +154,11 @@ function extractHeadings(markdown: string): { id: string; label: string }[] {
 }
 
 // Splits off the first prose paragraph so BlogKeyTakeaways can sit between
-// it and the rest of the article - same placement VellumUp's own blog page
-// uses (right after the opening paragraph reads better than before it).
-// Skips titles/images/blank lines while looking for that first paragraph; if
-// a "## " heading shows up before any paragraph text, there's no intro to
-// split off, so the takeaways box falls back to going before everything.
+// it and the rest of the article - right after the opening paragraph reads
+// better than before it. Skips titles/images/blank lines while looking for
+// that first paragraph; if a "## " heading shows up before any paragraph
+// text, there's no intro to split off, so the takeaways box falls back to
+// going before everything.
 function splitIntroMarkdown(markdown: string): { intro: string; rest: string } {
   const lines = markdown.split('\n');
   const paraLines: string[] = [];
@@ -196,11 +221,11 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
   const article = await getArticle(slug);
   if (!article) notFound();
 
-  const relatedPosts = await getRelatedPosts(slug);
+  const relatedPosts = await getRelatedPosts(slug, article.internal_link_slugs ?? []);
   const contentIsHtml = isHtmlContent(article.content);
   // HTML-format content has no Markdown "## " lines to scan, so there's
-  // nothing to build a ToC from - same 3+ heading threshold VellumUp's own
-  // page uses, so a one- or two-heading article doesn't get a near-empty pill.
+  // nothing to build a ToC from. The 3+ heading threshold keeps a one- or
+  // two-heading article from getting a near-empty pill.
   const headings = contentIsHtml ? [] : extractHeadings(article.content);
   const hasToc = headings.length >= 3;
 
@@ -208,27 +233,108 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
   // BlogKeyTakeaways just wants the plain strings.
   const takeawayStrings = (article.key_takeaways ?? []).map(k => k.takeaway);
 
-  // Same placement as VellumUp's own blog page: takeaways sit right after
-  // the intro paragraph, not before it. Only applies to Markdown - HTML
-  // content has no paragraph structure to split this way.
+  // Takeaways sit right after the intro paragraph, not before it. Only
+  // applies to Markdown - HTML content has no paragraph structure to split
+  // this way.
   const { intro, rest } = takeawayStrings.length > 0 && !contentIsHtml
     ? splitIntroMarkdown(article.content)
     : { intro: '', rest: article.content };
 
   return (
-    <>
-      {/* THREE-column grid at lg - same pattern as VellumUp's own production
-          blog page (app/[locale]/blog/[slug]/page.tsx): [280px ToC]
-          [minmax(0,720px) article text] [1fr empty spacer]. The empty third
+    <div className="bg-white">
+      {/* Hero image - full page width, rendered here instead of by
+          BlogPostLayout so it can span the entire viewport instead of being
+          boxed into the grid's middle column below. BlogPostLayout is called
+          with coverImage={null}, which makes it render its own no-image
+          title block (byline styling included) - the ToC/grid below then
+          only wraps that title+text block, not this image. */}
+      {article.cover_image && (
+        <div className="relative w-full h-[clamp(200px,25vw,360px)] overflow-hidden bg-slate-50">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={article.cover_image}
+            alt={article.title}
+            className="absolute inset-0 w-full h-full object-cover opacity-95"
+          />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/25 to-transparent" />
+          <div className="absolute inset-0" style={{ backgroundImage: 'linear-gradient(to bottom, transparent 70%, white 100%)' }} />
+        </div>
+      )}
+
+      {/* Title + byline - full width like the hero above, NOT part of the
+          three-column grid below. The ToC only makes sense next to the
+          article's actual text, not floating alongside the title, so the
+          grid starts at the body instead of wrapping the whole page.
+          Duplicates BlogPostLayout's own no-image title block exactly (same
+          markup/classes) since coverImage is always rendered separately on
+          this page (see the hero block above) - BlogPostLayout itself is
+          unchanged, this page just doesn't use its title-rendering path. */}
+      <div>
+        {/* max-w-3xl matches the article text column's own width (same value
+            BlogPostLayout's body div uses) - border-b sits on this inner,
+            constrained div (not the full-width wrapper above) so the line
+            only runs under the title/text column, not edge to edge. */}
+        <div className="relative max-w-3xl mx-auto px-6 pt-16 pb-11 border-b border-slate-100">
+          {!hasToc && (
+            <a
+              href="/blog"
+              className="hidden lg:flex items-center gap-1.5 absolute top-16 end-full me-8 whitespace-nowrap text-[12px] font-semibold text-slate-400 hover:text-slate-700 transition-colors"
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+              </svg>
+              Back to blog
+            </a>
+          )}
+          <a
+            href="/blog"
+            className="lg:hidden inline-flex items-center gap-1.5 text-[12px] font-semibold text-slate-400 hover:text-slate-700 transition-colors mb-4"
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+            Back to blog
+          </a>
+          <h1 className="text-[clamp(26px,3.8vw,48px)] font-extrabold text-slate-900 leading-[1.13] tracking-tight">
+            {article.title}
+          </h1>
+          <div className="flex items-center gap-2.5 mt-4 flex-wrap">
+            <span
+              className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0"
+              style={{ backgroundColor: '#4A68E5' }}
+              aria-hidden="true"
+            >
+              E
+            </span>
+            <span className="text-[13px] font-semibold text-slate-600">Editorial Team</span>
+            <span className="w-px h-3.5 bg-slate-200 shrink-0" aria-hidden="true" />
+            <time dateTime={article.created_at} className="text-[12px] font-semibold text-slate-400 uppercase tracking-wide">
+              {new Date(article.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+            </time>
+            {article.reading_time_minutes ? (
+              <>
+                <span className="w-px h-3.5 bg-slate-200 shrink-0" aria-hidden="true" />
+                <span className="text-[12px] font-semibold text-slate-400 uppercase tracking-wide">
+                  {article.reading_time_minutes} min read
+                </span>
+              </>
+            ) : null}
+          </div>
+        </div>
+      </div>
+
+      {/* THREE-column grid at lg: [280px ToC] [minmax(0,720px) article text]
+          [1fr empty spacer]. The empty third
           column exists ONLY to balance the ToC column's width, so the
           article text reads as centered on the page instead of shifted
           toward the ToC - a plain [280px_1fr] two-column grid would leave
           the text looking off-center, shifted right by the ToC's width with
           nothing balancing it on the other side. Below lg the grid is
-          inactive (single column) and the pill variant (nested inside
-          BlogPostLayout below) takes over instead. ToC column comes FIRST
-          (both in the grid template and in source order below) so it
-          renders to the left of the article text, not the right. */}
+          inactive (single column) and the pill variant (nested inside the
+          body below) takes over instead. ToC column comes FIRST (both in
+          the grid template and in source order below) so it renders to the
+          left of the article text, not the right. Starts here (below the
+          title block above) so the ToC sits beside the body text only. */}
       <div className="max-w-[1440px] mx-auto px-7 lg:grid lg:grid-cols-[280px_minmax(0,720px)_1fr] lg:gap-x-10 lg:items-start">
         {/* lg+ sidebar - its own grid column so it sits beside the article
             text instead of shrinking it. Same component/data as the pill
@@ -239,55 +345,60 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
           <PillTableOfContents variant="sidebar" items={headings} accentColor="#4A68E5" />
         )}
 
-        <BlogPostLayout
-          title={article.title}
-          coverImage={article.cover_image}
-          publishedAt={article.created_at}
-          readingTimeMinutes={article.reading_time_minutes ?? undefined}
-          accentColor="#4A68E5"
-          // The ToC sidebar above already shows its own "Back to blog" link
-          // (lg and up) when there's a ToC - showing BlogPostLayout's own
-          // lg+ back link too would duplicate it. No ToC means no sidebar,
-          // so BlogPostLayout's own back link is what's showing instead.
-          showBackLinkDesktop={!hasToc}
+        {/* Body - same typography classes as BlogPostLayout's own body div,
+            but WITHOUT its max-w-3xl/mx-auto/px-6 - this div already sits in
+            the grid's own minmax(0,720px) middle column, so those would
+            double-constrain it and shrink the text narrower than the column
+            it's meant to fill. BlogPostLayout itself isn't used here (see
+            the title block above for why), so these classes are duplicated
+            rather than inherited. */}
+        <div
+          className="blog-post-body py-12 text-[16px] leading-[1.8] text-slate-700
+                         [&_h2]:text-[26px] [&_h2]:font-bold [&_h2]:text-slate-900 [&_h2]:mt-12 [&_h2]:mb-4 [&_h2]:tracking-tight [&_h2]:leading-snug
+                         [&_h3]:text-[20px] [&_h3]:font-bold [&_h3]:text-slate-900 [&_h3]:mt-9 [&_h3]:mb-3 [&_h3]:tracking-tight
+                         [&_p]:mb-5 [&_p]:leading-[1.8]
+                         [&_ul]:mb-5 [&_ul]:ps-6 [&_ul]:list-disc
+                         [&_ol]:mb-5 [&_ol]:ps-6 [&_ol]:list-decimal
+                         [&_li]:mb-2
+                         [&_a]:font-medium [&_a]:underline [&_a]:underline-offset-2
+                         [&_img]:rounded-2xl [&_img]:my-8 [&_img]:w-full [&_img]:h-auto
+                         [&_blockquote]:my-7 [&_blockquote]:ps-5 [&_blockquote]:italic [&_blockquote]:text-slate-600"
+          style={{ ['--accent' as string]: '#4A68E5' } as React.CSSProperties}
         >
-          <div>
-            {contentIsHtml ? (
-              <>
-                {takeawayStrings.length > 0 && (
-                  <BlogKeyTakeaways items={takeawayStrings} accentColor="#4A68E5" />
-                )}
-                <div dangerouslySetInnerHTML={{ __html: article.content }} />
-              </>
-            ) : takeawayStrings.length > 0 && intro ? (
-              <>
-                <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>{intro}</ReactMarkdown>
+          <style>{`.blog-post-body a { color: var(--accent); } .blog-post-body blockquote { border-inline-start: 3px solid var(--accent); }`}</style>
+          {contentIsHtml ? (
+            <>
+              {takeawayStrings.length > 0 && (
                 <BlogKeyTakeaways items={takeawayStrings} accentColor="#4A68E5" />
-                <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>{rest}</ReactMarkdown>
-              </>
-            ) : (
-              <>
-                {takeawayStrings.length > 0 && (
-                  <BlogKeyTakeaways items={takeawayStrings} accentColor="#4A68E5" />
-                )}
-                <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>{article.content}</ReactMarkdown>
-              </>
-            )}
+              )}
+              <div dangerouslySetInnerHTML={{ __html: article.content }} />
+            </>
+          ) : takeawayStrings.length > 0 && intro ? (
+            <>
+              <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>{intro}</ReactMarkdown>
+              <BlogKeyTakeaways items={takeawayStrings} accentColor="#4A68E5" />
+              <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>{rest}</ReactMarkdown>
+            </>
+          ) : (
+            <>
+              {takeawayStrings.length > 0 && (
+                <BlogKeyTakeaways items={takeawayStrings} accentColor="#4A68E5" />
+              )}
+              <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>{article.content}</ReactMarkdown>
+            </>
+          )}
 
-            {/* Bottom pill, small screens only - the lg+ sidebar (above,
-                outside BlogPostLayout) takes over at that breakpoint. It's
-                its own 'use client' component, so it can render directly
-                here even though this page has no 'use client' itself - same
-                as VellumUp's own blog page does with BlogTocMobile.
-                Rendered as the last child inside this div so its plain
-                `position: sticky` sticks only while scrolling through this
-                div, then scrolls away normally once past its end (related
-                posts, footer). */}
-            {hasToc && (
-              <PillTableOfContents variant="pill" items={headings} accentColor="#4A68E5" />
-            )}
-          </div>
-        </BlogPostLayout>
+          {/* Bottom pill, small screens only - the lg+ sidebar (above)
+              takes over at that breakpoint. It's its own 'use client'
+              component, so it can render directly here even though this
+              page has no 'use client' itself. Rendered as the last child
+              inside this div so its plain `position: sticky` sticks only
+              while scrolling through this div, then scrolls away normally once
+              past its end (related posts, footer). */}
+          {hasToc && (
+            <PillTableOfContents variant="pill" items={headings} accentColor="#4A68E5" />
+          )}
+        </div>
 
         {/* Empty spacer column - balances the ToC column's width so the
             article text column above lands centered on the page. Only
@@ -296,14 +407,19 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
       </div>
 
       {relatedPosts.length > 0 && (
+        // containerClassName matches the grid above (max-w-[1440px] px-7)
+        // exactly, so "Related articles" spans the full page width - ToC
+        // column included - instead of BlogSection's own narrower max-w-6xl
+        // default, which would make it look like only the article text
+        // column's width.
         <BlogSection
           tagline="Keep reading"
-          heading="From the blog"
-          viewAllHref="/blog"
+          heading="More from the blog"
           accentColor="#4A68E5"
           posts={relatedPosts}
+          containerClassName="max-w-[1440px] px-7"
         />
       )}
-    </>
+    </div>
   );
 }

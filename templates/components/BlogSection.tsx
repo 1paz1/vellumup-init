@@ -1,6 +1,3 @@
-// SYNC-RULE: mirrored from lucidseo lib/catalog-items/blog-section/component-template.ts (BLOG_SECTION_TEMPLATE).
-// Edit both in the same commit - see templates/SYNC.md for the extraction recipe.
-// Known deltas here: this header, and em-dashes replaced with plain hyphens.
 // components/BlogSection.tsx
 'use client';
 
@@ -17,23 +14,25 @@ interface BlogPost {
 interface BlogSectionProps {
   tagline?: string;
   heading?: string;
-  description?: string;
-  viewAllHref?: string;
   accentColor?: string;
   posts: BlogPost[];
+  /** Tailwind width + horizontal-padding classes for the section's own
+   *  container - lets a caller match this section's width to a layout it
+   *  sits underneath (e.g. a page's own wider grid) instead of always using
+   *  the max-w-6xl px-6 default. */
+  containerClassName?: string;
 }
 
 export function BlogSection({
   tagline = 'Latest updates',
-  heading = 'From the blog',
-  description = 'Guides and tips on SEO, content, and growth.',
-  viewAllHref = '/blog',
+  heading = 'More from the blog',
   accentColor = '#4A68E5',
   posts,
+  containerClassName = 'max-w-6xl px-6',
 }: BlogSectionProps) {
   return (
     <section className="py-20 bg-white" aria-label={heading}>
-      <div className="max-w-6xl mx-auto px-6 flex flex-col items-center gap-12">
+      <div className={`${containerClassName} mx-auto flex flex-col items-center gap-12`}>
         <div className="text-center max-w-2xl">
           <span
             className="inline-block px-3 py-1 rounded-full text-[12px] font-semibold mb-4"
@@ -42,7 +41,6 @@ export function BlogSection({
             {tagline}
           </span>
           <h2 className="text-3xl md:text-4xl font-bold text-slate-900">{heading}</h2>
-          <p className="mt-3 text-[13px] text-slate-500 leading-relaxed">{description}</p>
         </div>
 
         <div
@@ -103,14 +101,6 @@ export function BlogSection({
             </article>
           ))}
         </div>
-
-        <a
-          href={viewAllHref}
-          className="text-[13px] font-semibold"
-          style={{ color: accentColor }}
-        >
-          View all posts
-        </a>
       </div>
     </section>
   );

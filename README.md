@@ -138,12 +138,6 @@ where you map incoming articles into whatever store you use.
 The webhook route works on both routers. The blog pages are App Router server
 components, so full blog mode needs an `app/` directory - adopt it and re-run.
 
-## Contributing / template sync
-
-The templates under `templates/` mirror the VellumUp product repo - see
-[`templates/SYNC.md`](templates/SYNC.md) for the mapping and re-extraction
-recipe before editing them.
-
 ## License
 
 [MIT](LICENSE)

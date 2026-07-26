@@ -1,27 +1,20 @@
-// SYNC-RULE: mirrored from lucidseo lib/catalog-items/full-article-page/wired-example.ts (WIRED_BLOG_INDEX_PAGE).
-// Edit both in the same commit - see templates/SYNC.md for the extraction recipe.
-// Known deltas here: this header, em-dashes replaced with hyphens, and the language-filter placeholder line (replaced by the CLI at install time).
-//
-// Data layer: this is Supabase-based code by default - a starting point, not
-// a requirement. Using another database or an ORM? Delete the inline
-// createClient(...) block and rewrite the small data-access function below
-// (getPosts) to return the same fields from whatever store you have - the
-// rest of the page works unchanged.
 // app/blog/page.tsx
 //
 // Lists published articles as a paginated card grid, using the same
 // BlogSection component the article page uses for its "related posts" - one
 // component, two places.
 //
+// Data layer: this is Supabase-based code by default - a starting point, not
+// a requirement. Using another database or an ORM? Delete the inline
+// createClient(...) block and rewrite the small data-access function below
+// (getPosts) to return the same fields from whatever store you have - the
+// rest of the page works unchanged.
+//
 // Only the card grid + pagination are wrapped in <Suspense> here, not the
 // header (tagline/heading/description) - so switching pages shows a card
 // skeleton in place of the grid while the header stays put and never
 // re-renders or flashes. This needs the Suspense boundary to own its own
 // data fetch, so BlogGrid (not the page itself) is the async component.
-//
-// Already have a Supabase client elsewhere in your project? Delete the
-// createClient(...) line below and import yours instead - see the note in
-// app/blog/[slug]/page.tsx (this page's sibling) for why this one is inline.
 import { Suspense } from 'react';
 import Link from 'next/link';
 import { createClient } from '@supabase/supabase-js';
@@ -125,12 +118,14 @@ async function BlogGrid({ page }: { page: number }) {
       >
         {posts.map(post => (
           <article key={post.slug} className="h-full">
+            {/* Hover accent via a CSS variable, not JS mouse handlers - this
+                file is a Server Component, and event handlers cannot be
+                passed to elements rendered on the server. */}
             <a
               href={`/blog/${post.slug}`}
               className="group flex flex-col h-full rounded-2xl border border-slate-200 bg-white overflow-hidden w-full
-                         transition-all hover:shadow-lg cursor-pointer"
-              onMouseEnter={e => (e.currentTarget.style.borderColor = ACCENT)}
-              onMouseLeave={e => (e.currentTarget.style.borderColor = '')}
+                         transition-all hover:shadow-lg hover:border-[var(--accent)] cursor-pointer"
+              style={{ ['--accent' as string]: ACCENT }}
             >
               <div className="relative aspect-video bg-slate-100">
                 {post.cover_image ? (
@@ -220,10 +215,9 @@ export default async function BlogIndexPage({ searchParams }: { searchParams: Pr
               className="inline-block px-3 py-1 rounded-full text-[12px] font-semibold mb-4"
               style={{ backgroundColor: `${ACCENT}14`, color: ACCENT }}
             >
-              Our blog
+              Blog
             </span>
-            <h2 className="text-3xl md:text-4xl font-bold text-slate-900">From the blog</h2>
-            <p className="mt-3 text-[13px] text-slate-500 leading-relaxed">Guides and updates.</p>
+            <h2 className="text-4xl md:text-5xl font-bold text-slate-900">All our articles</h2>
           </div>
 
           {/* key={page} forces a fresh Suspense boundary per page, so

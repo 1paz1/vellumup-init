@@ -1,6 +1,3 @@
-// SYNC-RULE: mirrored from lucidseo lib/catalog-items/blog-post-layout/component-template.ts (BLOG_POST_LAYOUT_TEMPLATE).
-// Edit both in the same commit - see templates/SYNC.md for the extraction recipe.
-// Known deltas here: this header, and em-dashes replaced with plain hyphens.
 // components/BlogPostLayout.tsx
 
 interface BlogPostLayoutProps {

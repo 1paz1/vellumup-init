@@ -1,15 +1,4 @@
-// SYNC-RULE: mirrored from lucidseo lib/catalog-items/full-article-page/wired-example.ts (WIRED_BLOG_KEY_TAKEAWAYS).
-// Edit both in the same commit - see templates/SYNC.md for the extraction recipe.
-// Known deltas here: this header, and em-dashes replaced with plain hyphens.
 // components/BlogKeyTakeaways.tsx
-//
-// Same component as the standalone "Key Takeaways Boxed" catalog item, named
-// to match VellumUp's own production blog page (BlogKeyTakeaways in
-// app/[locale]/blog/[slug]/page.tsx) since this is the exact piece it wires
-// into the full article page above.
-//
-// SYNC RULE (see top of this file): mirrored 1:1 by
-// app/preview/nextjs-integration/components/BlogKeyTakeaways.tsx.
 
 interface BlogKeyTakeawaysProps {
   title?: string;
@@ -38,22 +27,22 @@ export function BlogKeyTakeaways({
 
   return (
     <div
-      className="rounded-xl px-5 py-4"
-      style={{ backgroundColor: `${accentColor}0d`, borderInlineStart: `3px solid ${accentColor}` }}
+      className="rounded-xl px-6 py-6"
+      style={{ backgroundColor: `${accentColor}08` }}
     >
-      <div className="flex items-center gap-2 mb-3">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ color: accentColor }} aria-hidden="true">
+      <div className="flex items-center gap-2 mb-5">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" style={{ color: accentColor }} aria-hidden="true">
           <path d="M13 2L4.09 12.11a1 1 0 0 0 .76 1.65h4.32l-1.15 6.68a.5.5 0 0 0 .86.44L19.91 9.77a1 1 0 0 0-.76-1.65h-4.32l1.15-6.68a.5.5 0 0 0-.86-.44z" fill="currentColor" />
         </svg>
-        <span className="text-[12px] font-bold uppercase tracking-widest" style={{ color: accentColor }}>
+        <span className="text-[13.5px] font-semibold tracking-wide text-slate-900">
           {title}
         </span>
       </div>
 
-      <ul className="flex flex-col gap-2">
+      <ul className="flex flex-col gap-3">
         {items.map((item, i) => (
-          <li key={i} className="flex items-start gap-2.5 text-[14px] text-slate-700 leading-snug">
-            <span className="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: accentColor }} aria-hidden="true" />
+          <li key={i} className="flex items-start gap-3 text-[14.5px] text-slate-600 leading-relaxed">
+            <span className="mt-2 w-1 h-1 rounded-full shrink-0" style={{ backgroundColor: accentColor }} aria-hidden="true" />
             <span>{renderTakeaway(item)}</span>
           </li>
         ))}

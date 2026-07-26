@@ -1,6 +1,3 @@
-// SYNC-RULE: mirrored from lucidseo lib/catalog-items/webhook-route/route-template.ts (NEXTJS_APP_ROUTER_TEMPLATE).
-// Edit both in the same commit - see templates/SYNC.md for the extraction recipe.
-// Known deltas here: this header, and em-dashes replaced with plain hyphens.
 // app/api/vellumup/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { createHmac, timingSafeEqual } from 'crypto';

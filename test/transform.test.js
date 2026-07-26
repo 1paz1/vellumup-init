@@ -31,14 +31,16 @@ test('lang filter: language code is quote-escaped', () => {
 
 // Sync guard: a bad re-extraction from lucidseo that loses (or duplicates) the
 // placeholder lines must fail the test run, not silently ship a broken filter.
-test('templates contain exactly 3 lang placeholders across the two blog pages', () => {
+test('templates contain exactly 4 lang placeholders across the two blog pages', () => {
   const index = fs.readFileSync(path.join(TEMPLATES, 'app-router', 'blog', 'page.tsx'), 'utf8');
   const article = fs.readFileSync(
     path.join(TEMPLATES, 'app-router', 'blog', '[slug]', 'page.tsx'),
     'utf8',
   );
   assert.equal(countLangPlaceholders(index), 1);
-  assert.equal(countLangPlaceholders(article), 2);
+  // getArticle (1) + getRelatedPosts's two query branches - preferred
+  // (internal_link_slugs) and fallback (latest posts) - one each (2) = 3.
+  assert.equal(countLangPlaceholders(article), 3);
 });
 
 test('alias rewrite: article page depth resolves to ../../../components', () => {

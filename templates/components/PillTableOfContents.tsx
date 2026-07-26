@@ -1,6 +1,3 @@
-// SYNC-RULE: mirrored from lucidseo lib/catalog-items/table-of-contents-pill/component-template.ts (TABLE_OF_CONTENTS_PILL_TEMPLATE).
-// Edit both in the same commit - see templates/SYNC.md for the extraction recipe.
-// Known deltas here: this header, and em-dashes replaced with plain hyphens.
 // components/PillTableOfContents.tsx
 'use client';
 

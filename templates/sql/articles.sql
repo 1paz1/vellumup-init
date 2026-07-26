@@ -1,6 +1,3 @@
--- SYNC-RULE: mirrored from lucidseo lib/catalog-items/webhook-route/db-snippets.ts (ARTICLES_TABLE_SQL).
--- Edit both in the same commit - see templates/SYNC.md for the extraction recipe.
---
 -- Standard PostgreSQL - run it once with whatever client you use: the
 -- Supabase SQL Editor, psql, Neon/RDS console, anything. Using a different
 -- database (MySQL, SQLite, an ORM schema)? Recreate the same columns - the
