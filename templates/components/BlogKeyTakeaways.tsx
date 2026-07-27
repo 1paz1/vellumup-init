@@ -29,6 +29,7 @@ export function BlogKeyTakeaways({
     <div
       className="rounded-xl px-6 py-6"
       style={{ backgroundColor: `${accentColor}08` }}
+      aria-label="Key takeaways"
     >
       <div className="flex items-center gap-2 mb-5">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" style={{ color: accentColor }} aria-hidden="true">

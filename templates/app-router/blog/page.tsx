@@ -56,6 +56,7 @@ async function getPosts(page: number): Promise<{ posts: BlogPost[]; totalPages: 
 export const metadata = {
   title: 'Blog',
   description: 'Guides and updates.',
+  alternates: { canonical: '/blog' },
 };
 
 // Page 1 gets the clean /blog URL; every other page gets ?page=N.

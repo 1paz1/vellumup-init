@@ -15,6 +15,7 @@
 // there's no need for this page (or anything around it) to be 'use client'
 // itself.
 import { cache } from 'react';
+import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 import ReactMarkdown, { type Components } from 'react-markdown';
@@ -34,8 +35,14 @@ interface Article {
   content: string; // Markdown by default, or HTML if the endpoint's content format was set to HTML
   cover_image: string | null;
   meta_description: string | null;
+  focus_keyword: string | null;
+  secondary_keywords: string[] | null;
+  og_title: string | null;
+  og_description: string | null;
+  word_count: number | null;
   reading_time_minutes: number | null;
   created_at: string;
+  updated_at: string | null;
   key_takeaways: { takeaway: string; _heading?: string }[] | null;
   // Slugs of other articles the AI linked to inline, from the webhook
   // payload's internal_link_slugs - see getRelatedPosts below for how these
@@ -57,7 +64,7 @@ interface RelatedPost {
 const getArticle = cache(async (slug: string): Promise<Article | null> => {
   const { data } = await supabase
     .from('articles')
-    .select('slug, title, content, cover_image, meta_description, reading_time_minutes, created_at, key_takeaways, internal_link_slugs')
+    .select('slug, title, content, cover_image, meta_description, focus_keyword, secondary_keywords, og_title, og_description, word_count, reading_time_minutes, created_at, updated_at, key_takeaways, internal_link_slugs')
     .eq('slug', slug)
     .eq('status', 'published')
     // __VELLUMUP_LANG_FILTER__
@@ -109,17 +116,42 @@ async function getRelatedPosts(excludeSlug: string, internalLinkSlugs: string[])
   return [...linked, ...filler.slice(0, RELATED_POSTS_LIMIT - linked.length)];
 }
 
-export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
+// Title/description prefer the webhook's dedicated OG fields (og_title,
+// og_description) over the general title/meta_description, since those are
+// tuned for how the article reads when shared/linked rather than on-page.
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
   const article = await getArticle(slug);
   if (!article) return {};
+
+  const title = article.og_title ?? article.title;
+  const description = article.og_description ?? article.meta_description ?? undefined;
+  // Relative, not absolute - Next.js emits this as a relative <link
+  // rel="canonical">, which is valid without needing a site-wide base URL
+  // (metadataBase) configured. Same reasoning for openGraph.url below.
+  const canonical = `/blog/${article.slug}`;
+  const keywords = [article.focus_keyword, ...(article.secondary_keywords ?? [])].filter(
+    (k): k is string => !!k,
+  );
+
   return {
-    title: article.title,
-    description: article.meta_description ?? undefined,
+    title,
+    description,
+    keywords: keywords.length > 0 ? keywords : undefined,
+    alternates: { canonical },
     openGraph: {
-      title: article.title,
-      description: article.meta_description ?? undefined,
+      title,
+      description,
       type: 'article',
+      url: canonical,
+      publishedTime: article.created_at,
+      modifiedTime: article.updated_at ?? article.created_at,
+      images: article.cover_image ? [article.cover_image] : undefined,
+    },
+    twitter: {
+      card: article.cover_image ? 'summary_large_image' : 'summary',
+      title,
+      description,
       images: article.cover_image ? [article.cover_image] : undefined,
     },
   };
@@ -240,8 +272,34 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
     ? splitIntroMarkdown(article.content)
     : { intro: '', rest: article.content };
 
+  // Article structured data - lets search engines and AI answer engines
+  // parse the article's shape directly instead of guessing from prose. No
+  // author/publisher/url fields: the webhook payload has no author concept,
+  // and url/mainEntityOfPage need an absolute site URL this template
+  // deliberately doesn't assume (see generateMetadata's canonical comment) -
+  // both are optional in the Article schema, so omitting them is valid.
+  const jsonLdKeywords = [article.focus_keyword, ...(article.secondary_keywords ?? [])].filter(
+    (k): k is string => !!k,
+  );
+  const articleJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Article',
+    headline: article.title,
+    description: article.meta_description ?? article.og_description ?? undefined,
+    image: article.cover_image ? [article.cover_image] : undefined,
+    datePublished: article.created_at,
+    dateModified: article.updated_at ?? article.created_at,
+    keywords: jsonLdKeywords.length > 0 ? jsonLdKeywords.join(', ') : undefined,
+    wordCount: article.word_count ?? undefined,
+  };
+
   return (
     <div className="bg-white">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJsonLd) }}
+      />
+
       {/* Hero image - full page width, rendered here instead of by
           BlogPostLayout so it can span the entire viewport instead of being
           boxed into the grid's middle column below. BlogPostLayout is called
