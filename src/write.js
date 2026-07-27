@@ -21,7 +21,7 @@ export function partitionConflicts(filePlan) {
  *
  * @param {Array} filePlan        entries from buildFilePlan()
  * @param {'skip' | 'overwrite'}  conflictPolicy what to do with existing targets
- * @param {{ lang: string, aliasOk: boolean, componentsDir: string }} ctx
+ * @param {{ lang: string, aliasOk: boolean, componentsDir: string, libDir: string }} ctx
  * @returns {Array<{ label: string, relPath: string, action: 'created' | 'overwritten' | 'skipped' }>}
  */
 export function writeFilePlan(filePlan, conflictPolicy, ctx, cwd) {
@@ -41,7 +41,7 @@ export function writeFilePlan(filePlan, conflictPolicy, ctx, cwd) {
       content = applyLangFilter(content, ctx.lang);
     }
     if (entry.transforms.aliasRewrite && !ctx.aliasOk) {
-      content = rewriteAliasImports(content, entry.targetPath, ctx.componentsDir);
+      content = rewriteAliasImports(content, entry.targetPath, ctx.componentsDir, ctx.libDir);
     }
 
     fs.mkdirSync(path.dirname(entry.targetPath), { recursive: true });

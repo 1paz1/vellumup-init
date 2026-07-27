@@ -1,7 +1,7 @@
 // app/blog/page.tsx
 //
 // Lists published articles as a paginated card grid, using the same
-// BlogSection component the article page uses for its "related posts" - one
+// BlogCard component the article page's "related posts" section uses - one
 // component, two places.
 //
 // Data layer: this is Supabase-based code by default - a starting point, not
@@ -18,6 +18,8 @@
 import { Suspense } from 'react';
 import Link from 'next/link';
 import { createClient } from '@supabase/supabase-js';
+import { BLOG_ACCENT, DEFAULT_CARD_VARIANT } from '@/lib/blog-theme';
+import { BlogCard } from '@/components/BlogCard';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -25,7 +27,6 @@ const supabase = createClient(
 );
 
 const PAGE_SIZE = 9;
-const ACCENT = '#4A68E5';
 
 interface BlogPost {
   slug: string;
@@ -103,12 +104,21 @@ function CardsSkeleton() {
   );
 }
 
+function ArrowIcon({ direction }: { direction: 'left' | 'right' }) {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
+      className={direction === 'left' ? 'rotate-180' : ''}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 6l6 6-6 6" />
+    </svg>
+  );
+}
+
 // The only async piece on this page - everything Suspense blocks on lives
 // here, so CardsSkeleton is exactly what's shown while this is loading.
 async function BlogGrid({ page }: { page: number }) {
   const { posts, totalPages } = await getPosts(page);
 
-  const arrowClass = 'w-9 h-9 rounded-lg flex items-center justify-center text-[15px] font-semibold transition-colors';
+  const arrowClass = 'w-9 h-9 rounded-lg flex items-center justify-center transition-colors';
   const numberClass = 'w-9 h-9 rounded-lg flex items-center justify-center text-[13px] font-semibold transition-colors';
 
   return (
@@ -119,40 +129,7 @@ async function BlogGrid({ page }: { page: number }) {
       >
         {posts.map(post => (
           <article key={post.slug} className="h-full">
-            {/* Hover accent via a CSS variable, not JS mouse handlers - this
-                file is a Server Component, and event handlers cannot be
-                passed to elements rendered on the server. */}
-            <a
-              href={`/blog/${post.slug}`}
-              className="group flex flex-col h-full rounded-2xl border border-slate-200 bg-white overflow-hidden w-full
-                         transition-all hover:shadow-lg hover:border-[var(--accent)] cursor-pointer"
-              style={{ ['--accent' as string]: ACCENT }}
-            >
-              <div className="relative aspect-video bg-slate-100">
-                {post.cover_image ? (
-                  <img
-                    src={post.cover_image}
-                    alt={post.title}
-                    loading="lazy"
-                    className="absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                  />
-                ) : (
-                  <div className="w-full h-full bg-slate-50" aria-hidden="true" />
-                )}
-              </div>
-              <div className="flex flex-col gap-2 p-5 flex-1">
-                <h3 className="text-[16px] font-bold text-slate-900 leading-snug line-clamp-2">{post.title}</h3>
-                {post.meta_description && (
-                  <p className="text-[13px] text-slate-500 leading-relaxed line-clamp-2 flex-1">{post.meta_description}</p>
-                )}
-                <div className="flex items-center justify-between mt-2 pt-3 border-t border-slate-100 text-[12px]">
-                  <time dateTime={post.created_at} className="text-slate-400">
-                    {new Date(post.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                  </time>
-                  <span className="font-semibold" style={{ color: ACCENT }}>Read more</span>
-                </div>
-              </div>
-            </a>
+            <BlogCard post={post} variant={DEFAULT_CARD_VARIANT} accentColor={BLOG_ACCENT} />
           </article>
         ))}
       </div>
@@ -162,10 +139,10 @@ async function BlogGrid({ page }: { page: number }) {
           {page > 1 ? (
             <Link href={pageHref(page - 1)} aria-label="Previous page"
               className={`${arrowClass} text-slate-600 hover:bg-slate-100`}>
-              ←
+              <ArrowIcon direction="left" />
             </Link>
           ) : (
-            <span aria-hidden="true" className={`${arrowClass} text-slate-300 select-none`}>←</span>
+            <span aria-hidden="true" className={`${arrowClass} text-slate-300 select-none`}><ArrowIcon direction="left" /></span>
           )}
 
           {getPageNumbers(page, totalPages).map((p, i) =>
@@ -176,7 +153,7 @@ async function BlogGrid({ page }: { page: number }) {
             ) : p === page ? (
               <span key={p} aria-current="page"
                 className={`${numberClass} font-bold text-white`}
-                style={{ backgroundColor: ACCENT }}>
+                style={{ backgroundColor: BLOG_ACCENT }}>
                 {p}
               </span>
             ) : (
@@ -190,10 +167,10 @@ async function BlogGrid({ page }: { page: number }) {
           {page < totalPages ? (
             <Link href={pageHref(page + 1)} aria-label="Next page"
               className={`${arrowClass} text-slate-600 hover:bg-slate-100`}>
-              →
+              <ArrowIcon direction="right" />
             </Link>
           ) : (
-            <span aria-hidden="true" className={`${arrowClass} text-slate-300 select-none`}>→</span>
+            <span aria-hidden="true" className={`${arrowClass} text-slate-300 select-none`}><ArrowIcon direction="right" /></span>
           )}
         </nav>
       )}
@@ -214,7 +191,7 @@ export default async function BlogIndexPage({ searchParams }: { searchParams: Pr
           <div className="text-center max-w-2xl">
             <span
               className="inline-block px-3 py-1 rounded-full text-[12px] font-semibold mb-4"
-              style={{ backgroundColor: `${ACCENT}14`, color: ACCENT }}
+              style={{ backgroundColor: `${BLOG_ACCENT}14`, color: BLOG_ACCENT }}
             >
               Blog
             </span>

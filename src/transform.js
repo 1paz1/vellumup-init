@@ -27,20 +27,29 @@ export function countLangPlaceholders(source) {
 }
 
 /**
- * Rewrite `@/components/X` imports to relative paths when the project has no
- * usable "@/*" alias. Relative imports resolve in every project, so this is
- * the safe fallback; the alias form is kept when available purely because it
- * reads better.
+ * Rewrite `@/components/X` and `@/lib/X` imports to relative paths when the
+ * project has no usable "@/*" alias. Relative imports resolve in every
+ * project, so this is the safe fallback; the alias form is kept when
+ * available purely because it reads better.
  *
  * @param {string} source        file content to transform
  * @param {string} targetAbsPath absolute path the file will be written to
  * @param {string} componentsAbsDir absolute path of the components directory
+ * @param {string} libAbsDir     absolute path of the lib directory
  */
-export function rewriteAliasImports(source, targetAbsPath, componentsAbsDir) {
-  let relative = path
-    .relative(path.dirname(targetAbsPath), componentsAbsDir)
-    .split(path.sep)
-    .join('/');
-  if (!relative.startsWith('.')) relative = `./${relative}`;
-  return source.replaceAll("from '@/components/", `from '${relative}/`);
+export function rewriteAliasImports(source, targetAbsPath, componentsAbsDir, libAbsDir) {
+  function relativeFrom(absDir) {
+    let relative = path
+      .relative(path.dirname(targetAbsPath), absDir)
+      .split(path.sep)
+      .join('/');
+    if (!relative.startsWith('.')) relative = `./${relative}`;
+    return relative;
+  }
+
+  let result = source.replaceAll("from '@/components/", `from '${relativeFrom(componentsAbsDir)}/`);
+  if (libAbsDir) {
+    result = result.replaceAll("from '@/lib/", `from '${relativeFrom(libAbsDir)}/`);
+  }
+  return result;
 }

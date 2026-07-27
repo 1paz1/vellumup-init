@@ -23,6 +23,7 @@ import remarkGfm from 'remark-gfm';
 import { BlogSection } from '@/components/BlogSection';
 import { BlogKeyTakeaways } from '@/components/BlogKeyTakeaways';
 import { PillTableOfContents } from '@/components/PillTableOfContents';
+import { BLOG_ACCENT, DEFAULT_HERO_VARIANT, type HeroVariant } from '@/lib/blog-theme';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -248,6 +249,172 @@ const mdComponents: Components = {
   ),
 };
 
+// Desktop only (lg+) - small screens show no "Back to blog" link at all.
+// Only rendered when there's no ToC sidebar taking up that gutter space.
+function BackToBlogLink({ hasToc }: { hasToc: boolean }) {
+  return !hasToc ? (
+    <a href="/blog" className="hidden lg:flex items-center gap-1.5 absolute top-16 end-full me-8 whitespace-nowrap text-[12px] font-semibold text-slate-400 hover:text-slate-700 transition-colors">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+      </svg>
+      Back to blog
+    </a>
+  ) : null;
+}
+
+// Full-page-width hero image + title/byline block, rendered above the
+// three-column ToC/body grid (not inside it - the ToC only makes sense
+// beside the article text, not floating alongside the title).
+function ArticleHero({ article, hasToc, variant }: { article: Article; hasToc: boolean; variant: HeroVariant }) {
+  const longDate = new Date(article.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+
+  // Sidebar: matches components/BlogPostLayoutSidebar from the catalog -
+  // hero in a bordered rounded card, title left-aligned directly below it
+  // (not overlapping), then a divider, then a byline "info row" (avatar +
+  // three labeled mini-groups: Written by / Published / Reading time) laid
+  // out horizontally, not stacked into a column. max-w-3xl matches the
+  // article text column's own width (same as the elevated variant) so the
+  // header lines up with the body below it instead of looking wider/narrower.
+  if (variant === 'sidebar') {
+    return (
+      <>
+        <div className="max-w-3xl mx-auto px-6 pt-14">
+          {article.cover_image && (
+            <div className="relative w-full aspect-video rounded-2xl overflow-hidden bg-slate-100">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={article.cover_image} alt={article.title} className="absolute inset-0 w-full h-full object-cover" />
+            </div>
+          )}
+          <h1 className="text-[clamp(24px,3.4vw,40px)] font-extrabold text-slate-900 leading-[1.15] tracking-tight mt-8">
+            {article.title}
+          </h1>
+        </div>
+        <div className="max-w-3xl mx-auto px-6 pt-6 border-t border-slate-100 mt-6">
+          <div className="relative">
+            <BackToBlogLink hasToc={hasToc} />
+            <div className="flex items-center gap-5 flex-wrap">
+              <span
+                className="w-9 h-9 rounded-full flex items-center justify-center text-[13px] font-bold text-white shrink-0"
+                style={{ backgroundColor: BLOG_ACCENT }}
+                aria-hidden="true"
+              >
+                E
+              </span>
+              <div className="flex flex-col">
+                <span className="text-[11px] font-medium text-slate-400">Written by</span>
+                <span className="text-[13px] font-semibold text-slate-800">Editorial Team</span>
+              </div>
+              <div className="flex flex-col">
+                <span className="text-[11px] font-medium text-slate-400">Published</span>
+                <time dateTime={article.created_at} className="text-[13px] font-medium text-slate-600">{longDate}</time>
+              </div>
+              {article.reading_time_minutes ? (
+                <div className="flex flex-col">
+                  <span className="text-[11px] font-medium text-slate-400">Reading time</span>
+                  <span className="text-[13px] font-medium text-slate-600">{article.reading_time_minutes} min</span>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  // Minimal: matches components/BlogPostLayoutMinimal from the catalog -
+  // hero in a rounded card (no scrim), title centered below it, byline
+  // centered with small dot separators - a plain, editorial-neutral
+  // presentation with no card chrome around the header itself. max-w-3xl
+  // matches the article text column's own width (same as the elevated
+  // variant) so the header lines up with the body below it.
+  if (variant === 'minimal') {
+    return (
+      <div className="max-w-3xl mx-auto px-6 pt-16">
+        {article.cover_image && (
+          <div className="relative w-full aspect-video rounded-2xl overflow-hidden bg-slate-100">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={article.cover_image} alt={article.title} className="absolute inset-0 w-full h-full object-cover" />
+          </div>
+        )}
+        <div className="relative">
+          <BackToBlogLink hasToc={hasToc} />
+        </div>
+        <h1 className="text-[clamp(26px,3.8vw,44px)] font-bold text-slate-900 leading-[1.2] tracking-tight text-center mt-10">
+          {article.title}
+        </h1>
+        <div className="flex items-center justify-center gap-2 sm:gap-3 mt-6">
+          <span
+            className="w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-[11px] sm:text-[12px] font-bold text-white shrink-0"
+            style={{ backgroundColor: BLOG_ACCENT }}
+            aria-hidden="true"
+          >
+            E
+          </span>
+          <span className="text-[13px] sm:text-[14px] font-semibold text-slate-700">Editorial Team</span>
+          <span className="w-1 h-1 rounded-full bg-slate-300 shrink-0" aria-hidden="true" />
+          <time dateTime={article.created_at} className="text-[13px] sm:text-[14px] text-slate-500">{longDate}</time>
+          {article.reading_time_minutes ? (
+            <>
+              <span className="w-1 h-1 rounded-full bg-slate-300 shrink-0" aria-hidden="true" />
+              <span className="text-[13px] sm:text-[14px] text-slate-500">{article.reading_time_minutes} min read</span>
+            </>
+          ) : null}
+        </div>
+      </div>
+    );
+  }
+
+  // Elevated (default): unchanged original design - full-bleed hero image
+  // with a dark-to-white gradient scrim, colored avatar-initial circle,
+  // "|" separators, uppercase date/read-time, border under the header.
+  return (
+    <>
+      {article.cover_image && (
+        <div className="relative w-full h-[clamp(200px,25vw,360px)] overflow-hidden bg-slate-50">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={article.cover_image}
+            alt={article.title}
+            className="absolute inset-0 w-full h-full object-cover opacity-95"
+          />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/25 to-transparent" />
+          <div className="absolute inset-0" style={{ backgroundImage: 'linear-gradient(to bottom, transparent 70%, white 100%)' }} />
+        </div>
+      )}
+      <div>
+        <div className="relative max-w-3xl mx-auto px-6 pt-16 pb-11 border-b border-slate-100">
+          <BackToBlogLink hasToc={hasToc} />
+          <h1 className="text-[clamp(26px,3.8vw,48px)] font-extrabold text-slate-900 leading-[1.13] tracking-tight">
+            {article.title}
+          </h1>
+          <div className="flex items-center gap-2.5 mt-4 flex-wrap">
+            <span
+              className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0"
+              style={{ backgroundColor: BLOG_ACCENT }}
+              aria-hidden="true"
+            >
+              E
+            </span>
+            <span className="text-[13px] font-semibold text-slate-600">Editorial Team</span>
+            <span className="w-px h-3.5 bg-slate-200 shrink-0" aria-hidden="true" />
+            <time dateTime={article.created_at} className="text-[12px] font-semibold text-slate-400 uppercase tracking-wide">
+              {longDate}
+            </time>
+            {article.reading_time_minutes ? (
+              <>
+                <span className="w-px h-3.5 bg-slate-200 shrink-0" aria-hidden="true" />
+                <span className="text-[12px] font-semibold text-slate-400 uppercase tracking-wide">
+                  {article.reading_time_minutes} min read
+                </span>
+              </>
+            ) : null}
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
 export default async function BlogPostPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const article = await getArticle(slug);
@@ -300,86 +467,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
         dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJsonLd) }}
       />
 
-      {/* Hero image - full page width, rendered here instead of by
-          BlogPostLayout so it can span the entire viewport instead of being
-          boxed into the grid's middle column below. BlogPostLayout is called
-          with coverImage={null}, which makes it render its own no-image
-          title block (byline styling included) - the ToC/grid below then
-          only wraps that title+text block, not this image. */}
-      {article.cover_image && (
-        <div className="relative w-full h-[clamp(200px,25vw,360px)] overflow-hidden bg-slate-50">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={article.cover_image}
-            alt={article.title}
-            className="absolute inset-0 w-full h-full object-cover opacity-95"
-          />
-          <div className="absolute inset-0 bg-gradient-to-b from-black/25 to-transparent" />
-          <div className="absolute inset-0" style={{ backgroundImage: 'linear-gradient(to bottom, transparent 70%, white 100%)' }} />
-        </div>
-      )}
-
-      {/* Title + byline - full width like the hero above, NOT part of the
-          three-column grid below. The ToC only makes sense next to the
-          article's actual text, not floating alongside the title, so the
-          grid starts at the body instead of wrapping the whole page.
-          Duplicates BlogPostLayout's own no-image title block exactly (same
-          markup/classes) since coverImage is always rendered separately on
-          this page (see the hero block above) - BlogPostLayout itself is
-          unchanged, this page just doesn't use its title-rendering path. */}
-      <div>
-        {/* max-w-3xl matches the article text column's own width (same value
-            BlogPostLayout's body div uses) - border-b sits on this inner,
-            constrained div (not the full-width wrapper above) so the line
-            only runs under the title/text column, not edge to edge. */}
-        <div className="relative max-w-3xl mx-auto px-6 pt-16 pb-11 border-b border-slate-100">
-          {!hasToc && (
-            <a
-              href="/blog"
-              className="hidden lg:flex items-center gap-1.5 absolute top-16 end-full me-8 whitespace-nowrap text-[12px] font-semibold text-slate-400 hover:text-slate-700 transition-colors"
-            >
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-              </svg>
-              Back to blog
-            </a>
-          )}
-          <a
-            href="/blog"
-            className="lg:hidden inline-flex items-center gap-1.5 text-[12px] font-semibold text-slate-400 hover:text-slate-700 transition-colors mb-4"
-          >
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-            </svg>
-            Back to blog
-          </a>
-          <h1 className="text-[clamp(26px,3.8vw,48px)] font-extrabold text-slate-900 leading-[1.13] tracking-tight">
-            {article.title}
-          </h1>
-          <div className="flex items-center gap-2.5 mt-4 flex-wrap">
-            <span
-              className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0"
-              style={{ backgroundColor: '#4A68E5' }}
-              aria-hidden="true"
-            >
-              E
-            </span>
-            <span className="text-[13px] font-semibold text-slate-600">Editorial Team</span>
-            <span className="w-px h-3.5 bg-slate-200 shrink-0" aria-hidden="true" />
-            <time dateTime={article.created_at} className="text-[12px] font-semibold text-slate-400 uppercase tracking-wide">
-              {new Date(article.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
-            </time>
-            {article.reading_time_minutes ? (
-              <>
-                <span className="w-px h-3.5 bg-slate-200 shrink-0" aria-hidden="true" />
-                <span className="text-[12px] font-semibold text-slate-400 uppercase tracking-wide">
-                  {article.reading_time_minutes} min read
-                </span>
-              </>
-            ) : null}
-          </div>
-        </div>
-      </div>
+      <ArticleHero article={article} hasToc={hasToc} variant={DEFAULT_HERO_VARIANT} />
 
       {/* THREE-column grid at lg: [280px ToC] [minmax(0,720px) article text]
           [1fr empty spacer]. The empty third
@@ -400,7 +488,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
             instead of one component doing both). Placed first so it lands
             in the grid's first (left) column. */}
         {hasToc && (
-          <PillTableOfContents variant="sidebar" items={headings} accentColor="#4A68E5" />
+          <PillTableOfContents variant="sidebar" items={headings} accentColor={BLOG_ACCENT} />
         )}
 
         {/* Body - same typography classes as BlogPostLayout's own body div,
@@ -421,26 +509,26 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
                          [&_a]:font-medium [&_a]:underline [&_a]:underline-offset-2
                          [&_img]:rounded-2xl [&_img]:my-8 [&_img]:w-full [&_img]:h-auto
                          [&_blockquote]:my-7 [&_blockquote]:ps-5 [&_blockquote]:italic [&_blockquote]:text-slate-600"
-          style={{ ['--accent' as string]: '#4A68E5' } as React.CSSProperties}
+          style={{ ['--accent' as string]: BLOG_ACCENT } as React.CSSProperties}
         >
           <style>{`.blog-post-body a { color: var(--accent); } .blog-post-body blockquote { border-inline-start: 3px solid var(--accent); }`}</style>
           {contentIsHtml ? (
             <>
               {takeawayStrings.length > 0 && (
-                <BlogKeyTakeaways items={takeawayStrings} accentColor="#4A68E5" />
+                <BlogKeyTakeaways items={takeawayStrings} accentColor={BLOG_ACCENT} />
               )}
               <div dangerouslySetInnerHTML={{ __html: article.content }} />
             </>
           ) : takeawayStrings.length > 0 && intro ? (
             <>
               <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>{intro}</ReactMarkdown>
-              <BlogKeyTakeaways items={takeawayStrings} accentColor="#4A68E5" />
+              <BlogKeyTakeaways items={takeawayStrings} accentColor={BLOG_ACCENT} />
               <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>{rest}</ReactMarkdown>
             </>
           ) : (
             <>
               {takeawayStrings.length > 0 && (
-                <BlogKeyTakeaways items={takeawayStrings} accentColor="#4A68E5" />
+                <BlogKeyTakeaways items={takeawayStrings} accentColor={BLOG_ACCENT} />
               )}
               <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>{article.content}</ReactMarkdown>
             </>
@@ -454,7 +542,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
               while scrolling through this div, then scrolls away normally once
               past its end (related posts, footer). */}
           {hasToc && (
-            <PillTableOfContents variant="pill" items={headings} accentColor="#4A68E5" />
+            <PillTableOfContents variant="pill" items={headings} accentColor={BLOG_ACCENT} />
           )}
         </div>
 
@@ -473,7 +561,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
         <BlogSection
           tagline="Keep reading"
           heading="More from the blog"
-          accentColor="#4A68E5"
+          accentColor={BLOG_ACCENT}
           posts={relatedPosts}
           containerClassName="max-w-[1440px] px-7"
         />

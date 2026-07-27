@@ -24,9 +24,11 @@ your-project/
 │       └── [slug]/page.tsx       # article page (ToC, key takeaways, related posts)
 ├── components/
 │   ├── BlogPostLayout.tsx        # hero, byline, typography
-│   ├── BlogSection.tsx           # card grid (index + related posts)
+│   ├── BlogSection.tsx           # card grid section (index + related posts)
+│   ├── BlogCard.tsx              # the card itself - shared by index and related posts
 │   ├── BlogKeyTakeaways.tsx      # callout box
 │   └── PillTableOfContents.tsx   # responsive ToC (sidebar / bottom pill)
+├── lib/blog-theme.ts             # accent color + style variants - the one file to re-theme the blog
 ├── vellumup/articles.sql         # articles schema (standard PostgreSQL - Supabase, psql, any client)
 └── .env.local                    # VELLUMUP_WEBHOOK_SECRET= and Supabase keys appended
 ```
@@ -34,6 +36,21 @@ your-project/
 This runs end to end with no code left to write: the route upserts each
 delivered article into the `articles` table, and the pages read from it. Run
 the SQL, fill in the keys, and publishing in VellumUp puts a post on your site.
+
+## Theming
+
+Every accent color and font is read from `lib/blog-theme.ts` - change
+`BLOG_ACCENT` there and it propagates everywhere (cards, ToC, key takeaways,
+hero) with no other file to touch. The same file also picks the **style
+variant** for three parts of the blog, each with its own look documented
+inline:
+
+- **Cards** (`CardVariant`): `elevated`, `framed`, `minimal`
+- **Key Takeaways box** (`KeyTakeawaysVariant`): `soft`, `bordered`, `plain`, `numbered`
+- **Article hero** (`HeroVariant`): `elevated`, `minimal`, `sidebar`
+
+Set the `DEFAULT_*` constant for whichever one you want, or override per
+instance via the component's `variant` prop.
 
 "Webhook route only" mode writes just the receiver route, the SQL file, and the
 `VELLUMUP_WEBHOOK_SECRET=` placeholder - for projects that already have their

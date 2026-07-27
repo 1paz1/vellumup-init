@@ -67,3 +67,24 @@ test('alias rewrite: no-op on files without alias imports', () => {
   const output = rewriteAliasImports(source, '/proj/app/blog/page.tsx', '/proj/components');
   assert.equal(output, source);
 });
+
+test('alias rewrite: @/lib imports resolve alongside @/components imports', () => {
+  const source = [
+    "import { BlogSection } from '@/components/BlogSection';",
+    "import { BLOG_ACCENT } from '@/lib/blog-theme';",
+  ].join('\n');
+  const output = rewriteAliasImports(
+    source,
+    path.join('/proj', 'app', 'blog', '[slug]', 'page.tsx'),
+    path.join('/proj', 'components'),
+    path.join('/proj', 'lib'),
+  );
+  assert.ok(output.includes("from '../../../components/BlogSection'"));
+  assert.ok(output.includes("from '../../../lib/blog-theme'"));
+});
+
+test('alias rewrite: @/lib left untouched when no libAbsDir is passed', () => {
+  const source = "import { BLOG_ACCENT } from '@/lib/blog-theme';";
+  const output = rewriteAliasImports(source, '/proj/app/blog/page.tsx', '/proj/components');
+  assert.equal(output, source);
+});

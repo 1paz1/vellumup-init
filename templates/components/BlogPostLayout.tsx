@@ -1,5 +1,7 @@
 // components/BlogPostLayout.tsx
 
+import { BLOG_ACCENT } from '@/lib/blog-theme';
+
 interface BlogPostLayoutProps {
   title: string;
   coverImage?: string | null;
@@ -82,7 +84,7 @@ export function BlogPostLayout({
   authorAvatar,
   publishedAt,
   readingTimeMinutes,
-  accentColor = '#4A68E5',
+  accentColor = BLOG_ACCENT,
   backHref = '/blog',
   backLabel = 'Back to blog',
   showBackLinkDesktop = true,

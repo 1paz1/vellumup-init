@@ -2,6 +2,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { BLOG_ACCENT } from '@/lib/blog-theme';
 
 interface TocItem {
   id: string;
@@ -90,7 +91,7 @@ export function PillTableOfContents({
   items,
   variant = 'pill',
   title = 'On this page',
-  accentColor = '#4A68E5',
+  accentColor = BLOG_ACCENT,
   backHref = '/blog',
   backLabel = 'Back to blog',
 }: PillTableOfContentsProps) {

@@ -142,6 +142,7 @@ export async function run(argv) {
     lang,
     aliasOk: detection.aliasOk,
     componentsDir: path.join(detection.baseDir, 'components'),
+    libDir: path.join(detection.baseDir, 'lib'),
   }, cwd);
   results.push(writeSqlFile(sqlFilePlan(cwd), cwd));
 

@@ -53,7 +53,7 @@ export function buildFilePlan(detection, answers) {
         templatePath: template('app-router', 'blog', 'page.tsx'),
         targetPath: target('app', 'blog', 'page.tsx'),
         label: 'Blog index page',
-        transforms: { langFilter: true },
+        transforms: { langFilter: true, aliasRewrite: true },
       },
       {
         templatePath: template('app-router', 'blog', '[slug]', 'page.tsx'),
@@ -61,14 +61,23 @@ export function buildFilePlan(detection, answers) {
         label: 'Article page',
         transforms: { langFilter: true, aliasRewrite: true },
       },
-      ...['BlogPostLayout', 'BlogSection', 'BlogKeyTakeaways', 'PillTableOfContents'].map(
+      // Each component imports its accent color from @/lib/blog-theme, so it
+      // needs the same alias rewrite as the article page when the project
+      // has no working "@/*" alias.
+      ...['BlogPostLayout', 'BlogSection', 'BlogCard', 'BlogKeyTakeaways', 'PillTableOfContents'].map(
         (name) => ({
           templatePath: template('components', `${name}.tsx`),
           targetPath: target('components', `${name}.tsx`),
           label: `Component: ${name}`,
-          transforms: {},
+          transforms: { aliasRewrite: true },
         }),
       ),
+      {
+        templatePath: template('lib', 'blog-theme.ts'),
+        targetPath: target('lib', 'blog-theme.ts'),
+        label: 'Blog theme config',
+        transforms: {},
+      },
     );
   }
 
