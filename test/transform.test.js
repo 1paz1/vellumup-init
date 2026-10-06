@@ -29,18 +29,19 @@ test('lang filter: language code is quote-escaped', () => {
   assert.ok(output.includes("\\'"));
 });
 
-// Sync guard: a bad re-extraction from lucidseo that loses (or duplicates) the
-// placeholder lines must fail the test run, not silently ship a broken filter.
-test('templates contain exactly 4 lang placeholders across the two blog pages', () => {
-  const index = fs.readFileSync(path.join(TEMPLATES, 'app-router', 'blog', 'page.tsx'), 'utf8');
-  const article = fs.readFileSync(
-    path.join(TEMPLATES, 'app-router', 'blog', '[slug]', 'page.tsx'),
-    'utf8',
-  );
-  assert.equal(countLangPlaceholders(index), 1);
-  // getArticle (1) + getRelatedPosts's two query branches - preferred
-  // (internal_link_slugs) and fallback (latest posts) - one each (2) = 3.
-  assert.equal(countLangPlaceholders(article), 3);
+// Sync guard: an edit that loses (or duplicates) the placeholder lines must
+// fail the test run, not silently ship a broken filter.
+test('lang placeholders live only in the Supabase data file, exactly 4 of them', () => {
+  const read = (...segments) => fs.readFileSync(path.join(TEMPLATES, ...segments), 'utf8');
+
+  // getPosts (1) + getArticle (1) + getRelatedPosts's two query branches -
+  // preferred (internal_link_slugs) and fallback (latest posts) - one each (2).
+  assert.equal(countLangPlaceholders(read('lib', 'blog-data.supabase.ts')), 4);
+
+  // The pages don't query anything, and the sample data has no language.
+  assert.equal(countLangPlaceholders(read('app-router', 'blog', 'page.tsx')), 0);
+  assert.equal(countLangPlaceholders(read('app-router', 'blog', '[slug]', 'page.tsx')), 0);
+  assert.equal(countLangPlaceholders(read('lib', 'blog-data.sample.ts')), 0);
 });
 
 test('alias rewrite: article page depth resolves to ../../../components', () => {

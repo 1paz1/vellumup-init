@@ -4,11 +4,8 @@
 // BlogCard component the article page's "related posts" section uses - one
 // component, two places.
 //
-// Data layer: this is Supabase-based code by default - a starting point, not
-// a requirement. Using another database or an ORM? Delete the inline
-// createClient(...) block and rewrite the small data-access function below
-// (getPosts) to return the same fields from whatever store you have - the
-// rest of the page works unchanged.
+// Data: the posts come from getPosts in lib/blog-data.ts - change that file,
+// not this one, to point the blog at a different source.
 //
 // Only the card grid + pagination are wrapped in <Suspense> here, not the
 // header (tagline/heading/description) - so switching pages shows a card
@@ -17,42 +14,11 @@
 // data fetch, so BlogGrid (not the page itself) is the async component.
 import { Suspense } from 'react';
 import Link from 'next/link';
-import { createClient } from '@supabase/supabase-js';
+import { getPosts } from '@/lib/blog-data';
 import { BLOG_ACCENT, DEFAULT_CARD_VARIANT } from '@/lib/blog-theme';
 import { BlogCard } from '@/components/BlogCard';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-);
-
 const PAGE_SIZE = 9;
-
-interface BlogPost {
-  slug: string;
-  title: string;
-  cover_image: string | null;
-  meta_description: string | null;
-  focus_keyword: string | null;
-  created_at: string;
-}
-
-// One query returns both the page of rows (via range) and the total count
-// (via count: 'exact'), so pagination needs no second round-trip.
-async function getPosts(page: number): Promise<{ posts: BlogPost[]; totalPages: number }> {
-  const from = (page - 1) * PAGE_SIZE;
-  const { data, count } = await supabase
-    .from('articles')
-    .select('slug, title, cover_image, meta_description, focus_keyword, created_at', { count: 'exact' })
-    .eq('status', 'published')
-    // __VELLUMUP_LANG_FILTER__
-    .order('created_at', { ascending: false })
-    .range(from, from + PAGE_SIZE - 1);
-  return {
-    posts: data ?? [],
-    totalPages: Math.max(1, Math.ceil((count ?? 0) / PAGE_SIZE)),
-  };
-}
 
 export const metadata = {
   title: 'Blog',
@@ -116,7 +82,7 @@ function ArrowIcon({ direction }: { direction: 'left' | 'right' }) {
 // The only async piece on this page - everything Suspense blocks on lives
 // here, so CardsSkeleton is exactly what's shown while this is loading.
 async function BlogGrid({ page }: { page: number }) {
-  const { posts, totalPages } = await getPosts(page);
+  const { posts, totalPages } = await getPosts(page, PAGE_SIZE);
 
   const arrowClass = 'w-9 h-9 rounded-lg flex items-center justify-center transition-colors';
   const numberClass = 'w-9 h-9 rounded-lg flex items-center justify-center text-[13px] font-semibold transition-colors';

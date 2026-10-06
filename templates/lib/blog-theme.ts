@@ -20,10 +20,10 @@ export const BLOG_ACCENT_ACTIVE = `${BLOG_ACCENT}1a`;
  * Article/related-post card look, used by BlogSection. All three share the
  * same title height and footer row (date + "Read more"), so switching
  * variants never changes a card's overall height.
- * - 'elevated' (default): full-width image, title, excerpt, footer row.
+ * - 'elevated': full-width image, title, excerpt, footer row.
  *   Border + shadow, lifts on hover.
- * - 'framed': image inset within a padded rounded frame, bold title, footer
- *   row - no excerpt.
+ * - 'framed' (default): image inset within a padded rounded frame, bold
+ *   title, footer row - no excerpt.
  * - 'minimal': full-width image, title, footer row only - no excerpt. No
  *   border or shadow, the quietest card of the three.
  */
@@ -51,10 +51,9 @@ export const DEFAULT_KEY_TAKEAWAYS_VARIANT: KeyTakeawaysVariant = 'soft';
  * Article hero/title/byline block look, used by the article page's own
  * header (hero image + title + byline row above the article body).
  * - 'elevated' (default): full-bleed hero image, colored avatar-initial
- *   circle, "|" separators, uppercase date/read-time. Border under the
- *   whole header block.
- * - 'minimal': same shape, lighter touch - no avatar circle, "•" bullet
- *   separators, sentence-case date/read-time, no border under the header.
+ *   circle, "|" separators. Border under the whole header block.
+ * - 'minimal': same shape, lighter touch - centered, no avatar circle, "•"
+ *   bullet separators, no border under the header.
  * - 'sidebar': compact byline "info table" instead of one inline row - a
  *   small logo/avatar plus three labeled mini-columns (Written by /
  *   Published / Reading time), closer to a byline card than a sentence.

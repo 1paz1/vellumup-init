@@ -9,8 +9,15 @@ const TEMPLATES_DIR = fileURLToPath(new URL('../templates/', import.meta.url));
  * nothing here touches the user's filesystem, so the conflict prompt can show
  * exactly what WOULD happen before a single byte is written.
  *
+ * Modes:
+ * - 'full': webhook route + blog pages + components + data layer wired to
+ *   the articles table the route writes to.
+ * - 'route-only': just the webhook route, for projects with their own blog.
+ * - 'ui-only': blog pages + components + a data layer with sample posts -
+ *   no route, no database.
+ *
  * @param {import('./detect.js') extends never ? never : object} detection result of detectProject()
- * @param {{ mode: 'full' | 'route-only', lang: string }} answers
+ * @param {{ mode: 'full' | 'route-only' | 'ui-only', lang: string }} answers
  * @returns {Array<{
  *   templatePath: string,
  *   targetPath: string,
@@ -20,46 +27,53 @@ const TEMPLATES_DIR = fileURLToPath(new URL('../templates/', import.meta.url));
  */
 export function buildFilePlan(detection, answers) {
   const { router, baseDir } = detection;
+  const { mode } = answers;
   const template = (...segments) => path.join(TEMPLATES_DIR, ...segments);
   const target = (...segments) => path.join(baseDir, ...segments);
   const plan = [];
 
-  // Webhook receiver route - always written; the path depends on the router
-  // and the variant depends on the mode. Full blog gets a route that writes
-  // straight into the articles table the blog pages read from, so the whole
-  // thing works end to end with no code left to fill in. Route-only gets a
-  // database-agnostic version with two empty functions to implement, since
-  // those users are wiring the payload into a store we know nothing about.
-  const routeVariant = answers.mode === 'full' ? '' : '-route-only';
-  if (router === 'app') {
-    plan.push({
-      templatePath: template(`app-router${routeVariant}`, 'api', 'vellumup', 'route.ts'),
-      targetPath: target('app', 'api', 'vellumup', 'route.ts'),
-      label: 'Webhook route',
-      transforms: {},
-    });
-  } else {
-    plan.push({
-      templatePath: template(`pages-router${routeVariant}`, 'api', 'vellumup.ts'),
-      targetPath: target('pages', 'api', 'vellumup.ts'),
-      label: 'Webhook route',
-      transforms: {},
-    });
+  // Webhook receiver route - the path depends on the router and the variant
+  // on the mode. Full blog gets a route that writes straight into the
+  // articles table the blog pages read from, so the whole thing works end
+  // to end with no code left to fill in. Route-only gets a database-agnostic
+  // version with two empty functions to implement, since those users are
+  // wiring the payload into a store we know nothing about. UI-only has no
+  // route at all.
+  if (mode !== 'ui-only') {
+    const routeVariant = mode === 'full' ? '' : '-route-only';
+    if (router === 'app') {
+      plan.push({
+        templatePath: template(`app-router${routeVariant}`, 'api', 'vellumup', 'route.ts'),
+        targetPath: target('app', 'api', 'vellumup', 'route.ts'),
+        label: 'Webhook route',
+        transforms: {},
+      });
+    } else {
+      plan.push({
+        templatePath: template(`pages-router${routeVariant}`, 'api', 'vellumup.ts'),
+        targetPath: target('pages', 'api', 'vellumup.ts'),
+        label: 'Webhook route',
+        transforms: {},
+      });
+    }
   }
 
-  if (answers.mode === 'full') {
+  if (mode === 'full' || mode === 'ui-only') {
     plan.push(
+      // The pages are identical in both modes - they only read through
+      // lib/blog-data.ts, so the data file below is the one thing that
+      // differs between them.
       {
         templatePath: template('app-router', 'blog', 'page.tsx'),
         targetPath: target('app', 'blog', 'page.tsx'),
         label: 'Blog index page',
-        transforms: { langFilter: true, aliasRewrite: true },
+        transforms: { aliasRewrite: true },
       },
       {
         templatePath: template('app-router', 'blog', '[slug]', 'page.tsx'),
         targetPath: target('app', 'blog', '[slug]', 'page.tsx'),
         label: 'Article page',
-        transforms: { langFilter: true, aliasRewrite: true },
+        transforms: { aliasRewrite: true },
       },
       // Each component imports its accent color from @/lib/blog-theme, so it
       // needs the same alias rewrite as the article page when the project
@@ -78,6 +92,27 @@ export function buildFilePlan(detection, answers) {
         label: 'Blog theme config',
         transforms: {},
       },
+      {
+        templatePath: template('lib', 'blog-types.ts'),
+        targetPath: target('lib', 'blog-types.ts'),
+        label: 'Blog data types',
+        transforms: {},
+      },
+      // Same target, different source: full mode queries Supabase (and gets
+      // the language filter injected), ui-only returns the sample posts.
+      mode === 'full'
+        ? {
+            templatePath: template('lib', 'blog-data.supabase.ts'),
+            targetPath: target('lib', 'blog-data.ts'),
+            label: 'Blog data (Supabase)',
+            transforms: { langFilter: true },
+          }
+        : {
+            templatePath: template('lib', 'blog-data.sample.ts'),
+            targetPath: target('lib', 'blog-data.ts'),
+            label: 'Blog data (sample posts)',
+            transforms: {},
+          },
     );
   }
 

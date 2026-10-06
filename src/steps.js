@@ -7,7 +7,7 @@ import pc from 'picocolors';
  * literally. Order matters: database ready, then webhook wired up, then
  * deploy, then test - each step needs the one before it to already work.
  *
- * @param {{ mode: 'full' | 'route-only', installFailedCommand?: string, routePath: string, hasSupabaseClient?: boolean }} opts
+ * @param {{ mode: 'full' | 'route-only' | 'ui-only', installFailedCommand?: string, routePath: string, hasSupabaseClient?: boolean }} opts
  */
 export function renderNextSteps({ mode, installFailedCommand, routePath, hasSupabaseClient }) {
   const steps = [];
@@ -18,12 +18,27 @@ export function renderNextSteps({ mode, installFailedCommand, routePath, hasSupa
     );
   }
 
+  // UI-only has no webhook or database, so none of the steps below apply.
+  // The VellumUp mention stays one unnumbered line after the list - it is
+  // an option, not a step.
+  if (mode === 'ui-only') {
+    steps.push(
+      `Start your dev server and open ${pc.cyan('/blog')} - four sample posts are\n     already there.`,
+      `Set your brand color and styles in ${pc.cyan('lib/blog-theme.ts')}.`,
+      `Replace the sample posts in ${pc.cyan('lib/blog-data.ts')} with your own source\n     (a database, a CMS, Markdown files, an API). The pages only call\n     the three functions in that file.`,
+    );
+    return (
+      formatSteps(steps) +
+      `\n\n  ${pc.dim(`Want posts written and delivered automatically? See ${pc.cyan('https://vellumup.com')}.`)}`
+    );
+  }
+
   if (mode === 'full') {
     steps.push(
       `Run ${pc.cyan('vellumup/articles.sql')} against your database to create the\n     ${pc.bold('articles')} table (Supabase SQL Editor, psql, or any client).`,
       hasSupabaseClient
         ? `Fill ${pc.cyan('NEXT_PUBLIC_SUPABASE_URL')}, ${pc.cyan('NEXT_PUBLIC_SUPABASE_ANON_KEY')} and\n     ${pc.cyan('SUPABASE_SERVICE_ROLE_KEY')} in ${pc.cyan('.env.local')} (Supabase dashboard: Project\n     Settings > API) - the webhook route needs these to write.`
-        : `Install Supabase's client (${pc.cyan('npm install @supabase/supabase-js')}) and\n     fill ${pc.cyan('NEXT_PUBLIC_SUPABASE_URL')}, ${pc.cyan('NEXT_PUBLIC_SUPABASE_ANON_KEY')} and\n     ${pc.cyan('SUPABASE_SERVICE_ROLE_KEY')} in ${pc.cyan('.env.local')}. Using another database\n     instead? Replace ${pc.cyan('upsertArticle()')}/${pc.cyan('markArticleDraft()')} in the route and\n     the data-access functions in the two blog pages - each file marks the spot.`,
+        : `Install Supabase's client (${pc.cyan('npm install @supabase/supabase-js')}) and\n     fill ${pc.cyan('NEXT_PUBLIC_SUPABASE_URL')}, ${pc.cyan('NEXT_PUBLIC_SUPABASE_ANON_KEY')} and\n     ${pc.cyan('SUPABASE_SERVICE_ROLE_KEY')} in ${pc.cyan('.env.local')}. Using another database\n     instead? Replace ${pc.cyan('upsertArticle()')}/${pc.cyan('markArticleDraft()')} in the route and\n     the three functions in ${pc.cyan('lib/blog-data.ts')} - each file marks the spot.`,
     );
   }
 
@@ -36,6 +51,10 @@ export function renderNextSteps({ mode, installFailedCommand, routePath, hasSupa
       : `Click ${pc.bold('Test connection')} in the dashboard, then fill in the two\n     empty functions in your route - ${pc.cyan('upsertArticle()')} and\n     ${pc.cyan('markArticleDraft()')} - with calls to your own database.\n     (${pc.cyan('vellumup/articles.sql')} has a ready-made PostgreSQL schema if\n     you want one - adapt it freely for any other database.)`,
   );
 
+  return formatSteps(steps);
+}
+
+function formatSteps(steps) {
   return steps
     .map((step, index) => `  ${pc.bold(pc.green(`${index + 1}.`))} ${step}`)
     .join('\n\n');

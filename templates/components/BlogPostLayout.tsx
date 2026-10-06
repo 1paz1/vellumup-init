@@ -44,6 +44,9 @@ function Byline({
   return (
     <div className="flex items-center gap-2.5 mt-4 flex-wrap">
       {authorAvatar ? (
+        // Plain <img>, not next/image: images can come from any host, and
+        // next/image would need each one listed in next.config.
+        // eslint-disable-next-line @next/next/no-img-element
         <img
           src={authorAvatar}
           alt={authorName}
@@ -61,13 +64,13 @@ function Byline({
       )}
       <span className="text-[13px] font-semibold text-slate-600">{authorName}</span>
       <span className="w-px h-3.5 bg-slate-200 shrink-0" aria-hidden="true" />
-      <time dateTime={publishDate.toISOString()} className="text-[12px] font-semibold text-slate-400 uppercase tracking-wide">
+      <time dateTime={publishDate.toISOString()} className="text-[13px] text-slate-500">
         {formattedDate}
       </time>
       {readingTimeMinutes ? (
         <>
           <span className="w-px h-3.5 bg-slate-200 shrink-0" aria-hidden="true" />
-          <span className="text-[12px] font-semibold text-slate-400 uppercase tracking-wide">
+          <span className="text-[13px] text-slate-500">
             {readingTimeMinutes} min read
           </span>
         </>
@@ -142,6 +145,7 @@ export function BlogPostLayout({
       {coverImage ? (
         <div className="relative">
           <div className="relative w-full h-[clamp(240px,30vw,420px)] overflow-hidden bg-slate-50">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={coverImage}
               alt={coverImageAlt || title}
@@ -152,7 +156,7 @@ export function BlogPostLayout({
             <div className="absolute inset-0" style={{ backgroundImage: 'linear-gradient(to bottom, transparent 70%, white 100%)' }} />
           </div>
 
-          <div className="relative max-w-3xl mx-auto px-6 pt-9 pb-11 border-b border-slate-100">
+          <div className="relative max-w-3xl mx-auto px-6 pt-9 pb-6 border-b border-slate-100">
             {backLinkDesktop('top-9')}
             {backLinkMobile}
             <h1 className="text-[clamp(26px,3.6vw,44px)] font-extrabold text-slate-900 leading-[1.13] tracking-tight">
@@ -163,7 +167,7 @@ export function BlogPostLayout({
         </div>
       ) : (
         <div className="border-b border-slate-100">
-          <div className="relative max-w-3xl mx-auto px-6 pt-16 pb-11">
+          <div className="relative max-w-3xl mx-auto px-6 pt-16 pb-6">
             {backLinkDesktop('top-16')}
             {backLinkMobile}
             <h1 className="text-[clamp(26px,3.8vw,48px)] font-extrabold text-slate-900 leading-[1.13] tracking-tight">

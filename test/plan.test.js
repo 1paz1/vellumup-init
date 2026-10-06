@@ -55,11 +55,80 @@ test('pages router picks its own route variants', () => {
   assert.ok(fs.existsSync(routeOnly.templatePath));
 });
 
-test('route-only mode writes just the route, full mode adds pages and components', () => {
+test('each mode writes the expected number of files', () => {
   const routeOnly = buildFilePlan(APP_DETECTION, { mode: 'route-only', lang: 'en' });
   const full = buildFilePlan(APP_DETECTION, { mode: 'full', lang: 'en' });
+  const uiOnly = buildFilePlan(APP_DETECTION, { mode: 'ui-only', lang: 'en' });
 
   assert.equal(routeOnly.length, 1);
-  // route + 2 pages + 6 components + 1 theme config
-  assert.equal(full.length, 10);
+  // route + 2 pages + 6 components + theme + types + data
+  assert.equal(full.length, 12);
+  // the same minus the route
+  assert.equal(uiOnly.length, 11);
+});
+
+test('ui-only mode writes no webhook route', () => {
+  const uiOnly = buildFilePlan(APP_DETECTION, { mode: 'ui-only', lang: 'en' });
+  assert.equal(routeEntry(uiOnly), undefined);
+  assert.ok(uiOnly.every((entry) => !entry.targetPath.includes(`${path.sep}api${path.sep}`)));
+});
+
+test('full and ui-only write the same files apart from the route and the data source', () => {
+  const full = buildFilePlan(APP_DETECTION, { mode: 'full', lang: 'en' });
+  const uiOnly = buildFilePlan(APP_DETECTION, { mode: 'ui-only', lang: 'en' });
+
+  const targets = (plan) => plan.filter((entry) => entry.label !== 'Webhook route').map((entry) => entry.targetPath);
+  assert.deepEqual(targets(full), targets(uiOnly));
+
+  const differing = full.filter((entry) => {
+    const other = uiOnly.find((candidate) => candidate.targetPath === entry.targetPath);
+    return other && other.templatePath !== entry.templatePath;
+  });
+  assert.deepEqual(
+    differing.map((entry) => entry.targetPath),
+    [path.join('/proj', 'lib', 'blog-data.ts')],
+  );
+});
+
+test('lib/blog-data.ts comes from the Supabase or sample template, by mode', () => {
+  const dataEntry = (mode) =>
+    buildFilePlan(APP_DETECTION, { mode, lang: 'en' }).find((entry) =>
+      entry.targetPath.endsWith(`${path.sep}blog-data.ts`),
+    );
+
+  const full = dataEntry('full');
+  const uiOnly = dataEntry('ui-only');
+
+  assert.ok(full.templatePath.endsWith('blog-data.supabase.ts'));
+  assert.ok(uiOnly.templatePath.endsWith('blog-data.sample.ts'));
+  // Only the Supabase queries get a language filter.
+  assert.equal(full.transforms.langFilter, true);
+  assert.ok(!uiOnly.transforms.langFilter);
+  for (const entry of [full, uiOnly]) assert.ok(fs.existsSync(entry.templatePath));
+});
+
+test('both data files export the three functions the pages call', () => {
+  const plan = buildFilePlan(APP_DETECTION, { mode: 'full', lang: 'en' });
+  const templates = path.dirname(plan.find((entry) => entry.label === 'Blog theme config').templatePath);
+  const supabase = fs.readFileSync(path.join(templates, 'blog-data.supabase.ts'), 'utf8');
+  const sample = fs.readFileSync(path.join(templates, 'blog-data.sample.ts'), 'utf8');
+
+  for (const source of [supabase, sample]) {
+    assert.match(source, /export async function getPosts\(/);
+    assert.match(source, /export (const getArticle =|async function getArticle\()/);
+    assert.match(source, /export async function getRelatedPosts\(/);
+    assert.ok(source.includes("from './blog-types'"));
+  }
+  // The sample must run with nothing installed - it imports only its own types.
+  assert.doesNotMatch(sample, /^import .* from '(?!\.\/)/m);
+});
+
+test('the blog pages read only through lib/blog-data.ts', () => {
+  const plan = buildFilePlan(APP_DETECTION, { mode: 'full', lang: 'en' });
+  for (const label of ['Blog index page', 'Article page']) {
+    const source = fs.readFileSync(plan.find((entry) => entry.label === label).templatePath, 'utf8');
+    assert.ok(source.includes("from '@/lib/blog-data'"), label);
+    assert.ok(!source.includes('@supabase/supabase-js'), label);
+    assert.ok(!source.includes(".from('articles')"), label);
+  }
 });

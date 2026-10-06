@@ -1,124 +1,32 @@
 // app/blog/[slug]/page.tsx
 //
-// Renders one article fetched from the "articles" table your webhook route
-// saves to.
+// Renders one article.
 //
-// Data layer: this is Supabase-based code by default - a starting point, not
-// a requirement. Using another database or an ORM? Delete the inline
-// createClient(...) block and rewrite the small data-access functions below
-// (getArticle, getRelatedPosts) to return the same fields from whatever
-// store you have - the rest of the page works unchanged.
+// Data: the article and its related posts come from getArticle and
+// getRelatedPosts in lib/blog-data.ts - change that file, not this one, to
+// point the blog at a different source.
 //
-// Everything lives in this one file - no separate client wrapper.
+// Everything else lives in this one file - no separate client wrapper.
 // PillTableOfContents is already its own 'use client' component, so a plain
 // async Server Component (this page) can render it directly as a child;
 // there's no need for this page (or anything around it) to be 'use client'
 // itself.
-import { cache } from 'react';
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { createClient } from '@supabase/supabase-js';
 import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { BlogSection } from '@/components/BlogSection';
 import { BlogKeyTakeaways } from '@/components/BlogKeyTakeaways';
 import { PillTableOfContents } from '@/components/PillTableOfContents';
 import { BlogAiSummary } from '@/components/BlogAiSummary';
+import { getArticle, getRelatedPosts } from '@/lib/blog-data';
+import type { Article } from '@/lib/blog-types';
 import { BLOG_ACCENT, DEFAULT_HERO_VARIANT, SHOW_AI_SUMMARY, type HeroVariant } from '@/lib/blog-theme';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-);
-
-interface Article {
-  slug: string;
-  title: string;
-  content: string; // Markdown by default, or HTML if the endpoint's content format was set to HTML
-  cover_image: string | null;
-  meta_description: string | null;
-  focus_keyword: string | null;
-  secondary_keywords: string[] | null;
-  og_title: string | null;
-  og_description: string | null;
-  word_count: number | null;
-  reading_time_minutes: number | null;
-  created_at: string;
-  updated_at: string | null;
-  key_takeaways: { takeaway: string; _heading?: string }[] | null;
-  // Slugs of other articles the AI linked to inline, from the webhook
-  // payload's internal_link_slugs - see getRelatedPosts below for how these
-  // drive "Related articles" instead of just showing the newest posts.
-  internal_link_slugs: string[] | null;
-}
-
-interface RelatedPost {
-  slug: string;
-  title: string;
-  cover_image: string | null;
-  meta_description: string | null;
-  focus_keyword: string | null;
-  created_at: string;
-}
-
-// cache() dedupes the fetch between generateMetadata and the page itself -
-// one DB query per request, not two.
-const getArticle = cache(async (slug: string): Promise<Article | null> => {
-  const { data } = await supabase
-    .from('articles')
-    .select('slug, title, content, cover_image, meta_description, focus_keyword, secondary_keywords, og_title, og_description, word_count, reading_time_minutes, created_at, updated_at, key_takeaways, internal_link_slugs')
-    .eq('slug', slug)
-    .eq('status', 'published')
-    // __VELLUMUP_LANG_FILTER__
-    .single();
-  return data;
-});
 
 const RELATED_POSTS_LIMIT = 3;
 
-// Prefers the specific articles the AI actually linked to from within this
-// article's body (internal_link_slugs on the webhook payload) - these are
-// genuinely related by content, not just recent. If that gives fewer than
-// RELATED_POSTS_LIMIT (or none at all - e.g. a brand-new site too small yet
-// for the AI to link between articles), tops the list up with the newest
-// other articles so the section still shows a full row whenever enough
-// published articles exist, instead of stopping short at 1-2 posts.
-async function getRelatedPosts(excludeSlug: string, internalLinkSlugs: string[]): Promise<RelatedPost[]> {
-  const linked: RelatedPost[] = [];
-
-  if (internalLinkSlugs.length > 0) {
-    const { data } = await supabase
-      .from('articles')
-      .select('slug, title, cover_image, meta_description, focus_keyword, created_at')
-      .eq('status', 'published')
-      // __VELLUMUP_LANG_FILTER__
-      .neq('slug', excludeSlug)
-      .in('slug', internalLinkSlugs)
-      .order('created_at', { ascending: false })
-      .limit(RELATED_POSTS_LIMIT);
-    linked.push(...(data ?? []));
-  }
-
-  if (linked.length >= RELATED_POSTS_LIMIT) return linked;
-
-  // Excluding already-included slugs client-side (rather than a `.not(...in...)`
-  // filter built from a raw joined string) sidesteps any need to escape
-  // slugs for a PostgREST filter - fetch a few extra so there's still enough
-  // left after filtering out the current article and any already-linked ones.
-  const alreadyIncluded = new Set([excludeSlug, ...linked.map(post => post.slug)]);
-  const { data: fillerData } = await supabase
-    .from('articles')
-    .select('slug, title, cover_image, meta_description, focus_keyword, created_at')
-    .eq('status', 'published')
-    // __VELLUMUP_LANG_FILTER__
-    .order('created_at', { ascending: false })
-    .limit(RELATED_POSTS_LIMIT + alreadyIncluded.size);
-
-  const filler = (fillerData ?? []).filter(post => !alreadyIncluded.has(post.slug));
-  return [...linked, ...filler.slice(0, RELATED_POSTS_LIMIT - linked.length)];
-}
-
-// Title/description prefer the webhook's dedicated OG fields (og_title,
+// Title/description prefer the dedicated OG fields (og_title,
 // og_description) over the general title/meta_description, since those are
 // tuned for how the article reads when shared/linked rather than on-page.
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
@@ -166,8 +74,8 @@ function isHtmlContent(content: string): boolean {
 }
 
 // Deterministic slugify, so the id a heading gets here always matches the id
-// extractHeadings() below assigns the same heading text, with zero extra
-// data needed from the webhook.
+// extractHeadings() below assigns the same heading text, with no extra
+// data needed beyond the content.
 function slugify(text: string): string {
   return text
     .toLowerCase()
@@ -177,7 +85,7 @@ function slugify(text: string): string {
 }
 
 // Scans raw Markdown for "## "/"### " lines and turns each into a
-// { id, label } pill entry - no reliance on any webhook field beyond content.
+// { id, label } pill entry - no field needed beyond the content.
 function extractHeadings(markdown: string): { id: string; label: string }[] {
   const headings: { id: string; label: string }[] = [];
   for (const line of markdown.split('\n')) {
@@ -254,12 +162,12 @@ const mdComponents: Components = {
 // Only rendered when there's no ToC sidebar taking up that gutter space.
 function BackToBlogLink({ hasToc }: { hasToc: boolean }) {
   return !hasToc ? (
-    <a href="/blog" className="hidden lg:flex items-center gap-1.5 absolute top-16 end-full me-8 whitespace-nowrap text-[12px] font-semibold text-slate-400 hover:text-slate-700 transition-colors">
+    <Link href="/blog" className="hidden lg:flex items-center gap-1.5 absolute top-16 end-full me-8 whitespace-nowrap text-[12px] font-semibold text-slate-400 hover:text-slate-700 transition-colors">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
         <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
       </svg>
       Back to blog
-    </a>
+    </Link>
   ) : null;
 }
 
@@ -269,8 +177,7 @@ function BackToBlogLink({ hasToc }: { hasToc: boolean }) {
 function ArticleHero({ article, hasToc, variant }: { article: Article; hasToc: boolean; variant: HeroVariant }) {
   const longDate = new Date(article.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 
-  // Sidebar: matches components/BlogPostLayoutSidebar from the catalog -
-  // hero in a bordered rounded card, title left-aligned directly below it
+  // Sidebar: hero in a bordered rounded card, title left-aligned directly below it
   // (not overlapping), then a divider, then a byline "info row" (avatar +
   // three labeled mini-groups: Written by / Published / Reading time) laid
   // out horizontally, not stacked into a column. max-w-3xl matches the
@@ -328,8 +235,7 @@ function ArticleHero({ article, hasToc, variant }: { article: Article; hasToc: b
     );
   }
 
-  // Minimal: matches components/BlogPostLayoutMinimal from the catalog -
-  // hero in a rounded card (no scrim), title centered below it, byline
+  // Minimal: hero in a rounded card (no scrim), title centered below it, byline
   // centered with small dot separators - a plain, editorial-neutral
   // presentation with no card chrome around the header itself. max-w-3xl
   // matches the article text column's own width (same as the elevated
@@ -377,9 +283,9 @@ function ArticleHero({ article, hasToc, variant }: { article: Article; hasToc: b
     );
   }
 
-  // Elevated (default): unchanged original design - full-bleed hero image
-  // with a dark-to-white gradient scrim, colored avatar-initial circle,
-  // "|" separators, uppercase date/read-time, border under the header.
+  // Elevated (default): full-bleed hero image with a dark-to-white gradient
+  // scrim, colored avatar-initial circle, "|" separators, border under the
+  // header.
   return (
     <>
       {article.cover_image && (
@@ -395,7 +301,7 @@ function ArticleHero({ article, hasToc, variant }: { article: Article; hasToc: b
         </div>
       )}
       <div>
-        <div className="relative max-w-3xl mx-auto px-6 pt-16 pb-11 border-b border-slate-100">
+        <div className="relative max-w-3xl mx-auto px-6 pt-16 pb-6 border-b border-slate-100">
           <BackToBlogLink hasToc={hasToc} />
           <h1 className="text-[clamp(26px,3.8vw,48px)] font-extrabold text-slate-900 leading-[1.13] tracking-tight">
             {article.title}
@@ -410,13 +316,13 @@ function ArticleHero({ article, hasToc, variant }: { article: Article; hasToc: b
             </span>
             <span className="text-[13px] font-semibold text-slate-600">Editorial Team</span>
             <span className="w-px h-3.5 bg-slate-200 shrink-0" aria-hidden="true" />
-            <time dateTime={article.created_at} className="text-[12px] font-semibold text-slate-400 uppercase tracking-wide">
+            <time dateTime={article.created_at} className="text-[13px] text-slate-500">
               {longDate}
             </time>
             {article.reading_time_minutes ? (
               <>
                 <span className="w-px h-3.5 bg-slate-200 shrink-0" aria-hidden="true" />
-                <span className="text-[12px] font-semibold text-slate-400 uppercase tracking-wide">
+                <span className="text-[13px] text-slate-500">
                   {article.reading_time_minutes} min read
                 </span>
               </>
@@ -439,7 +345,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
   const article = await getArticle(slug);
   if (!article) notFound();
 
-  const relatedPosts = await getRelatedPosts(slug, article.internal_link_slugs ?? []);
+  const relatedPosts = await getRelatedPosts(slug, article.internal_link_slugs ?? [], RELATED_POSTS_LIMIT);
   const contentIsHtml = isHtmlContent(article.content);
   // HTML-format content has no Markdown "## " lines to scan, so there's
   // nothing to build a ToC from. The 3+ heading threshold keeps a one- or
@@ -447,7 +353,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
   const headings = contentIsHtml ? [] : extractHeadings(article.content);
   const hasToc = headings.length >= 3;
 
-  // The webhook stores key_takeaways as { takeaway, _heading? }[] -
+  // key_takeaways is { takeaway, _heading? }[] (the shape VellumUp sends) -
   // BlogKeyTakeaways just wants the plain strings.
   const takeawayStrings = (article.key_takeaways ?? []).map(k => k.takeaway);
 
@@ -460,7 +366,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
 
   // Article structured data - lets search engines and AI answer engines
   // parse the article's shape directly instead of guessing from prose. No
-  // author/publisher/url fields: the webhook payload has no author concept,
+  // author/publisher/url fields: the article fields have no author concept,
   // and url/mainEntityOfPage need an absolute site URL this template
   // deliberately doesn't assume (see generateMetadata's canonical comment) -
   // both are optional in the Article schema, so omitting them is valid.
@@ -573,7 +479,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
 
       {relatedPosts.length > 0 && (
         // containerClassName matches the grid above (max-w-[1440px] px-7)
-        // exactly, so "Related articles" spans the full page width - ToC
+        // exactly, so "More from the blog" spans the full page width - ToC
         // column included - instead of BlogSection's own narrower max-w-6xl
         // default, which would make it look like only the article text
         // column's width.

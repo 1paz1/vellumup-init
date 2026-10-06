@@ -20,8 +20,15 @@
 // canonical comment in app/blog/[slug]/page.tsx).
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useSyncExternalStore } from 'react';
 import type { HeroVariant } from '@/lib/blog-theme';
+
+// React reads getPageUrl again on every render, so the URL is always the
+// current page's. Nothing else needs to trigger a re-render, so there is
+// nothing to subscribe to.
+const subscribeToNothing = () => () => {};
+const getPageUrl = () => `${window.location.origin}${window.location.pathname}`;
+const getServerPageUrl = () => '';
 
 // Edit freely - {title} and {url} are filled in per article. The last line
 // makes the assistant answer in the article's own language, so the same
@@ -67,18 +74,21 @@ interface BlogAiSummaryProps {
 }
 
 export function BlogAiSummary({ title, variant }: BlogAiSummaryProps) {
-  // Filled after mount; until then the links point at the assistants' home
-  // pages, so a click before hydration still lands somewhere sensible.
-  const [query, setQuery] = useState('');
+  // Empty on the server and during hydration, the page URL after that - so
+  // the server HTML and the first client render match, and until hydration
+  // the links point at the assistants' home pages, which still lands
+  // somewhere sensible.
+  const url = useSyncExternalStore(subscribeToNothing, getPageUrl, getServerPageUrl);
+  // One pass over the template, so a title that happens to contain "{url}"
+  // (or "$&"-style replacement patterns) is inserted as-is.
+  const query = url
+    ? encodeURIComponent(PROMPT_TEMPLATE.replace(/\{(title|url)\}/g, (_, key) => (key === 'title' ? title : url)))
+    : '';
 
-  useEffect(() => {
-    const url = `${window.location.origin}${window.location.pathname}`;
-    setQuery(encodeURIComponent(PROMPT_TEMPLATE.replace('{title}', title).replace('{url}', url)));
-  }, [title]);
-
-  // Per-variant sizing so the row matches the byline it sits in: small
-  // uppercase label for 'elevated', sentence-case for 'minimal', and a
-  // stacked label-over-value group for 'sidebar' (like its other groups).
+  // Per-variant layout so the row matches the byline it sits in: an inline
+  // label for 'elevated', a centered row with slightly larger buttons for
+  // 'minimal', and a stacked label-over-value group for 'sidebar' (like its
+  // other groups).
   const button = variant === 'minimal' ? 'w-8 h-8' : 'w-7 h-7';
   const icon = variant === 'minimal' ? 15 : 13;
 
@@ -122,7 +132,7 @@ export function BlogAiSummary({ title, variant }: BlogAiSummaryProps) {
 
   return (
     <div className="flex items-center gap-2.5">
-      <span className="text-[12px] font-semibold text-slate-400 uppercase tracking-wide">{LABEL}</span>
+      <span className="text-[13px] text-slate-500">{LABEL}</span>
       {buttons}
     </div>
   );

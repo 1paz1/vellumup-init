@@ -35,6 +35,9 @@ function CardImage({ post, rounded, aspect = 'aspect-video' }: { post: BlogCardP
   return (
     <div className={`relative ${aspect} bg-slate-100 shrink-0 overflow-hidden ${rounded}`}>
       {post.cover_image ? (
+        // Plain <img>, not next/image: cover images can come from any host,
+        // and next/image would need each one listed in next.config.
+        // eslint-disable-next-line @next/next/no-img-element
         <img
           src={post.cover_image}
           alt={post.cover_image_alt || post.title}

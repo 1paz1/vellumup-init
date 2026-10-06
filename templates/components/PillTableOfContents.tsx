@@ -58,6 +58,7 @@ function useTocScrollspy(items: TocItem[]) {
     // items is usually a literal array built inline by the caller, so a
     // reference-based dep would re-run this on every render - stringify it
     // instead so the effect only re-runs when the TOC structure actually changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [JSON.stringify(items)]);
 
   function scrollTo(id: string) {
@@ -129,7 +130,7 @@ export function PillTableOfContents({
               key={item.id}
               onClick={() => scrollTo(item.id)}
               aria-current={isActive ? 'location' : undefined}
-              className={`w-full text-start py-1.5 px-2.5 rounded-lg text-[13px] transition-all flex items-center gap-2 ${
+              className={`w-full text-start py-1.5 px-2.5 rounded-lg text-[13px] transition-all flex items-center gap-2 cursor-pointer ${
                 isActive ? 'font-semibold text-slate-900 bg-slate-50' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50/60'
               }`}
             >
@@ -183,7 +184,7 @@ function PillVariant({
                     onClick={() => handleSelect(item.id)}
                     aria-current={isActive ? 'location' : undefined}
                     style={isActive ? { color: accentColor, backgroundColor: `${accentColor}1a` } : undefined}
-                    className={`text-start text-[13px] leading-snug rounded-lg py-1.5 px-2.5 transition-all ${
+                    className={`text-start text-[13px] leading-snug rounded-lg py-1.5 px-2.5 transition-all cursor-pointer ${
                       isActive ? 'font-semibold' : 'font-normal text-slate-500 hover:text-slate-900'
                     }`}
                   >

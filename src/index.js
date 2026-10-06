@@ -14,7 +14,16 @@ import { renderNextSteps } from './steps.js';
 const DEFAULT_LANG = 'en';
 
 export async function run(argv) {
-  const options = parseCliArgs(argv);
+  // A bad flag is a usage mistake, not a crash - print the reason and the
+  // help text instead of the bin's "crashed unexpectedly" stack trace.
+  let options;
+  try {
+    options = parseCliArgs(argv);
+  } catch (err) {
+    console.error(`\n${pc.red(err.message)}`);
+    console.log(HELP_TEXT);
+    process.exit(1);
+  }
 
   if (options.help) {
     console.log(HELP_TEXT);
@@ -56,10 +65,19 @@ export async function run(argv) {
   // ── Mode ─────────────────────────────────────────────────────────────────
   // The blog pages are App Router server components; a Pages-Router-only
   // project silently gets route-only mode with an explanation instead of a
-  // choice it cannot actually take.
+  // choice it cannot actually take. Asking for the pages alone (--ui-only)
+  // on such a project is an error, since that is exactly what it can't have.
   let mode;
   if (options.routeOnly) {
     mode = 'route-only';
+  } else if (options.uiOnly && detection.router === 'pages') {
+    p.cancel(
+      'The blog pages need the App Router (an app/ directory), and this project\n' +
+        'uses the Pages Router. Adopt the app/ directory, then re-run with --ui-only.',
+    );
+    process.exit(1);
+  } else if (options.uiOnly) {
+    mode = 'ui-only';
   } else if (detection.router === 'pages') {
     mode = 'route-only';
     p.note(
@@ -83,6 +101,11 @@ export async function run(argv) {
             value: 'route-only',
             label: 'Webhook route only',
             hint: 'just the receiver endpoint - for projects with their own blog',
+          },
+          {
+            value: 'ui-only',
+            label: 'Blog UI only',
+            hint: 'pages + components with sample posts - no database, no webhook',
           },
         ],
         initialValue: 'full',
@@ -144,21 +167,25 @@ export async function run(argv) {
     componentsDir: path.join(detection.baseDir, 'components'),
     libDir: path.join(detection.baseDir, 'lib'),
   }, cwd);
-  results.push(writeSqlFile(sqlFilePlan(cwd), cwd));
 
+  // UI-only stores nothing, so it gets no schema and no env vars.
   // SUPABASE_SERVICE_ROLE_KEY (no NEXT_PUBLIC_ prefix - it must stay
   // server-side) is what lets the webhook route write through the table's
   // row-level security. The two public keys cover the blog pages' reads.
-  const envKeys =
-    mode === 'full'
-      ? [
-          'VELLUMUP_WEBHOOK_SECRET',
-          'NEXT_PUBLIC_SUPABASE_URL',
-          'NEXT_PUBLIC_SUPABASE_ANON_KEY',
-          'SUPABASE_SERVICE_ROLE_KEY',
-        ]
-      : ['VELLUMUP_WEBHOOK_SECRET'];
-  const envResults = ensureEnvVars(cwd, envKeys);
+  let envResults = [];
+  if (mode !== 'ui-only') {
+    results.push(writeSqlFile(sqlFilePlan(cwd), cwd));
+    const envKeys =
+      mode === 'full'
+        ? [
+            'VELLUMUP_WEBHOOK_SECRET',
+            'NEXT_PUBLIC_SUPABASE_URL',
+            'NEXT_PUBLIC_SUPABASE_ANON_KEY',
+            'SUPABASE_SERVICE_ROLE_KEY',
+          ]
+        : ['VELLUMUP_WEBHOOK_SECRET'];
+    envResults = ensureEnvVars(cwd, envKeys);
+  }
   spinner.stop('Files written');
 
   p.note(
@@ -189,36 +216,38 @@ export async function run(argv) {
       'Next.js version',
     );
   }
-  // The generated route and pages import @supabase/supabase-js. It is not
-  // installed automatically because Supabase is the default wiring, not a
-  // requirement - so say plainly what to do either way.
+  // The generated route and lib/blog-data.ts import @supabase/supabase-js.
+  // It is not installed automatically because Supabase is the default
+  // wiring, not a requirement - so say plainly what to do either way.
   if (mode === 'full' && !detection.hasSupabaseClient) {
     p.note(
-      'The generated route and blog pages are written against Supabase, which\n' +
+      'The generated route and blog data file are written against Supabase, which\n' +
         `is not installed here yet. Either add it:\n` +
         `  ${pc.cyan(installCommand(detection.packageManager, ['@supabase/supabase-js']))}\n` +
         'or, if you use a different database, replace the Supabase calls with\n' +
         'your own: upsertArticle()/markArticleDraft() in the route, and the\n' +
-        'data-access functions in the two blog pages. Each file marks the spot.',
+        'three functions in lib/blog-data.ts. Each file marks the spot.',
       'Database client',
     );
   }
-  // Detected i18n but the blog pages filter by one fixed language code - the
-  // injected filter line carries a comment marking exactly where to make it
-  // dynamic (e.g. keyed off a [locale] route segment).
+  // Detected i18n but lib/blog-data.ts filters by one fixed language code -
+  // each injected filter line carries a comment marking exactly where to
+  // make it dynamic (e.g. keyed off a [locale] route segment).
   if (mode === 'full' && detection.i18n) {
     p.note(
-      'Your project looks multi-language, but the blog pages filter articles\n' +
+      'Your project looks multi-language, but the blog filters articles\n' +
         `by a single fixed language ('${lang}'). Want articles in every language?\n` +
-        "Swap that filter for your locale - each file marks the exact line\n" +
+        "Swap that filter for your locale - lib/blog-data.ts marks each line\n" +
         '("swap \'' + lang + '\' for your locale param").',
       'Multiple languages',
     );
   }
 
   // ── Dependencies ─────────────────────────────────────────────────────────
+  // Both blog modes render Markdown, so both need the same two packages.
+  const needsBlogDeps = mode === 'full' || mode === 'ui-only';
   let installFailedCommand;
-  if (mode === 'full' && detection.missingDeps.length > 0 && !options.noInstall) {
+  if (needsBlogDeps && detection.missingDeps.length > 0 && !options.noInstall) {
     const command = installCommand(detection.packageManager, detection.missingDeps);
     const shouldInstall = options.yes
       ? true
@@ -241,7 +270,7 @@ export async function run(argv) {
     } else {
       installFailedCommand = command;
     }
-  } else if (mode === 'full' && detection.missingDeps.length > 0) {
+  } else if (needsBlogDeps && detection.missingDeps.length > 0) {
     installFailedCommand = installCommand(detection.packageManager, detection.missingDeps);
   }
 
@@ -257,11 +286,12 @@ export async function run(argv) {
     }),
   );
   console.log();
-  p.outro(
-    mode === 'full'
-      ? pc.green('Your VellumUp blog is scaffolded. Happy publishing!')
-      : pc.green('Your VellumUp webhook route is ready.'),
-  );
+  const outro = {
+    full: 'Your VellumUp blog is scaffolded. Happy publishing!',
+    'ui-only': 'Your blog is scaffolded with sample posts.',
+    'route-only': 'Your VellumUp webhook route is ready.',
+  };
+  p.outro(pc.green(outro[mode]));
 }
 
 /** Shared cancel guard - Ctrl-C at any prompt exits cleanly, nothing half-written. */
