@@ -35,7 +35,7 @@ const SAMPLE_POSTS: SamplePost[] = [
     key_takeaways: [
       { takeaway: 'The blog is plain code in your project: two pages in app/blog and a few components.' },
       { takeaway: 'Posts come from lib/blog-data.ts, which returns these sample posts for now.' },
-      { takeaway: 'Colors and styles are set in lib/blog-theme.ts.' },
+      { takeaway: 'Your site details, colors and styles are set in lib/blog-theme.ts.' },
     ],
     internal_link_slugs: ['connect-your-own-content', 'match-your-site'],
     content: `This blog was added to your project by vellumup-init. Everything on this page is regular code in your own repository, so you can read it, change it or delete it like any other file.
@@ -49,18 +49,18 @@ const SAMPLE_POSTS: SamplePost[] = [
 | \`components/\` | The cards, takeaways box, table of contents and AI summary buttons |
 | \`lib/blog-data.ts\` | Where the posts come from |
 | \`lib/blog-types.ts\` | The fields a post has |
-| \`lib/blog-theme.ts\` | Accent color and style variants |
+| \`lib/blog-theme.ts\` | Your site details, accent color and style variants |
 
 ## Where the posts come from
 
-The pages never fetch anything themselves. They call three functions in \`lib/blog-data.ts\`: \`getPosts\`, \`getArticle\` and \`getRelatedPosts\`. Right now those functions return four sample posts written in that same file, this one included.
+The pages never fetch anything themselves. They call three functions in \`lib/blog-data.ts\`. Right now those functions return four sample posts written in that same file, this one included.
 
 When you are ready for real content, swap the sample posts for your own source. [Connect your own content](/blog/connect-your-own-content) shows how.
 
 ## What to change first
 
-1. Set your brand color in \`lib/blog-theme.ts\` - see [Make the blog match your site](/blog/match-your-site).
-2. Change the heading and metadata of the index page in \`app/blog/page.tsx\`.
+1. Fill in your site details - URL, name and author - at the top of \`lib/blog-theme.ts\`. Search engines and share previews use them. See [What an article page includes](/blog/inside-an-article-page).
+2. Set your brand color in the same file - see [Make the blog match your site](/blog/match-your-site).
 3. Replace the sample posts with your own.`,
   },
   {
@@ -159,11 +159,12 @@ The buttons in the article header open ChatGPT, Claude or Perplexity with a prom
     og_title: null,
     og_description: null,
     created_at: '2026-03-02T09:00:00.000Z',
-    updated_at: null,
+    // Edited after publishing, so its byline shows this date.
+    updated_at: '2026-03-14T09:00:00.000Z',
     key_takeaways: [
       { takeaway: 'The table of contents appears once an article has three or more headings.' },
       { takeaway: 'Related posts prefer the articles a post links to, then fill up with the newest ones.' },
-      { takeaway: 'Search metadata and structured data are built from the post fields.' },
+      { takeaway: 'Search metadata and structured data are built for you from the post fields and your site details.' },
     ],
     internal_link_slugs: ['welcome-to-your-blog', 'match-your-site'],
     content: `An article page is built from the post's fields, plus a few parts worked out from its content. This post shows all of them.
@@ -180,9 +181,19 @@ If a post has \`key_takeaways\`, they appear in a box right after the first para
 
 Below the article, "More from the blog" shows up to three other posts. Posts listed in \`internal_link_slugs\` come first, and the newest posts fill any spots left.
 
+## Dates
+
+The header shows one date: when the post was published, or - when it was edited at least a day later - when it was last updated, as on this post. Search engines and AI search both look at how recent a page is, so the date is shown only for real edits.
+
 ## Search and sharing
 
-The page sets its title, description, canonical URL, and Open Graph and Twitter tags from the post's fields. It also adds Article structured data (JSON-LD), so search engines can read the title, dates and keywords directly.`,
+The page sets its title, description, canonical URL, and Open Graph and Twitter tags from the post's fields. It adds structured data (JSON-LD) with the title, dates, keywords and - once you set them in \`lib/blog-theme.ts\` - the author, publisher and breadcrumbs.
+
+With your site URL set, all of these use full URLs, which share previews need. Without it everything still works, with relative URLs. Remember to add your posts to your site's sitemap, so search engines find new ones quickly.
+
+## Writing for AI search
+
+Google says AI answers need nothing beyond normal good SEO, and that is what the page above provides. The rest is the writing. A study of generative search engines (Princeton, KDD 2024) found that adding quotations, statistics and cited sources made content noticeably more visible in AI answers, while keyword stuffing did not help. A first paragraph that answers the question directly, clear headings and a short list of takeaways all make a post easier to quote.`,
   },
 ];
 
@@ -227,3 +238,4 @@ export async function getRelatedPosts(
   const filler = others.filter((article) => !internalLinkSlugs.includes(article.slug));
   return [...linked, ...filler].slice(0, limit).map(toSummary);
 }
+

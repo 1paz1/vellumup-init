@@ -1,5 +1,11 @@
 import pc from 'picocolors';
 
+// Shared by both blog modes. The comment at the top of lib/blog-theme.ts
+// covers the rest (sitemap, robots.txt, Search Console), so this stays one
+// step.
+const SITE_DETAILS_STEP =
+  `Fill in your site details - URL, name and author - at the top of\n     ${pc.cyan('lib/blog-theme.ts')}. Search engines, AI search and share previews\n     use them. The comment there also lists what to add to your sitemap\n     and robots.txt. The same file sets your brand color and styles.`;
+
 /**
  * Render the numbered "next steps" block shown in the outro. This is the
  * user's entire remaining onboarding, so it must be complete and copy-paste
@@ -24,8 +30,8 @@ export function renderNextSteps({ mode, installFailedCommand, routePath, hasSupa
   if (mode === 'ui-only') {
     steps.push(
       `Start your dev server and open ${pc.cyan('/blog')} - four sample posts are\n     already there.`,
-      `Set your brand color and styles in ${pc.cyan('lib/blog-theme.ts')}.`,
-      `Replace the sample posts in ${pc.cyan('lib/blog-data.ts')} with your own source\n     (a database, a CMS, Markdown files, an API). The pages only call\n     the three functions in that file.`,
+      SITE_DETAILS_STEP,
+      `Replace the sample posts in ${pc.cyan('lib/blog-data.ts')} with your own source\n     (a database, a CMS, Markdown files, an API). The pages read only\n     through that file.`,
     );
     return (
       formatSteps(steps) +
@@ -38,7 +44,8 @@ export function renderNextSteps({ mode, installFailedCommand, routePath, hasSupa
       `Run ${pc.cyan('vellumup/articles.sql')} against your database to create the\n     ${pc.bold('articles')} table (Supabase SQL Editor, psql, or any client).`,
       hasSupabaseClient
         ? `Fill ${pc.cyan('NEXT_PUBLIC_SUPABASE_URL')}, ${pc.cyan('NEXT_PUBLIC_SUPABASE_ANON_KEY')} and\n     ${pc.cyan('SUPABASE_SERVICE_ROLE_KEY')} in ${pc.cyan('.env.local')} (Supabase dashboard: Project\n     Settings > API) - the webhook route needs these to write.`
-        : `Install Supabase's client (${pc.cyan('npm install @supabase/supabase-js')}) and\n     fill ${pc.cyan('NEXT_PUBLIC_SUPABASE_URL')}, ${pc.cyan('NEXT_PUBLIC_SUPABASE_ANON_KEY')} and\n     ${pc.cyan('SUPABASE_SERVICE_ROLE_KEY')} in ${pc.cyan('.env.local')}. Using another database\n     instead? Replace ${pc.cyan('upsertArticle()')}/${pc.cyan('markArticleDraft()')} in the route and\n     the three functions in ${pc.cyan('lib/blog-data.ts')} - each file marks the spot.`,
+        : `Install Supabase's client (${pc.cyan('npm install @supabase/supabase-js')}) and\n     fill ${pc.cyan('NEXT_PUBLIC_SUPABASE_URL')}, ${pc.cyan('NEXT_PUBLIC_SUPABASE_ANON_KEY')} and\n     ${pc.cyan('SUPABASE_SERVICE_ROLE_KEY')} in ${pc.cyan('.env.local')}. Using another database\n     instead? Replace ${pc.cyan('upsertArticle()')}/${pc.cyan('markArticleDraft()')} in the route and\n     the functions in ${pc.cyan('lib/blog-data.ts')} - each file marks the spot.`,
+      SITE_DETAILS_STEP,
     );
   }
 

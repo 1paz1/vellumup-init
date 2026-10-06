@@ -132,3 +132,20 @@ test('the blog pages read only through lib/blog-data.ts', () => {
     assert.ok(!source.includes(".from('articles')"), label);
   }
 });
+
+test('nothing in the blog invents an author', () => {
+  const plan = buildFilePlan(APP_DETECTION, { mode: 'ui-only', lang: 'en' });
+  for (const entry of plan) {
+    const source = fs.readFileSync(entry.templatePath, 'utf8');
+    assert.ok(!source.includes('Editorial Team'), entry.label);
+  }
+  // The byline reads the author from the settings file, which ships empty.
+  const theme = fs.readFileSync(plan.find((entry) => entry.label === 'Blog theme config').templatePath, 'utf8');
+  assert.match(theme, /export const BLOG_AUTHOR: BlogAuthor \| null = null;/);
+});
+
+test('JSON-LD is escaped so article text cannot close the script tag', () => {
+  const plan = buildFilePlan(APP_DETECTION, { mode: 'ui-only', lang: 'en' });
+  const article = fs.readFileSync(plan.find((entry) => entry.label === 'Article page').templatePath, 'utf8');
+  assert.ok(article.includes(String.raw`.replace(/</g, '\\u003c')`));
+});

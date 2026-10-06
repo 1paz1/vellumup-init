@@ -13,22 +13,46 @@
 // re-renders or flashes. This needs the Suspense boundary to own its own
 // data fetch, so BlogGrid (not the page itself) is the async component.
 import { Suspense } from 'react';
+import type { Metadata } from 'next';
 import Link from 'next/link';
+import { notFound } from 'next/navigation';
 import { getPosts } from '@/lib/blog-data';
-import { BLOG_ACCENT, DEFAULT_CARD_VARIANT } from '@/lib/blog-theme';
+import { BLOG_ACCENT, BLOG_DESCRIPTION, DEFAULT_CARD_VARIANT, SITE_NAME, SITE_URL } from '@/lib/blog-theme';
 import { BlogCard } from '@/components/BlogCard';
 
 const PAGE_SIZE = 9;
 
-export const metadata = {
-  title: 'Blog',
-  description: 'Guides and updates.',
-  alternates: { canonical: '/blog' },
-};
+type SearchParams = Promise<{ page?: string }>;
+
+// Anything that isn't a positive whole number (missing, 0, 'abc') is page 1.
+function parsePage(param: string | undefined): number {
+  return Math.max(1, Number.parseInt(param ?? '1', 10) || 1);
+}
 
 // Page 1 gets the clean /blog URL; every other page gets ?page=N.
 function pageHref(page: number): string {
   return page === 1 ? '/blog' : `/blog?page=${page}`;
+}
+
+// Each page of the list is its own canonical URL - Google advises against
+// pointing page 2+ at page 1. With SITE_URL set (lib/blog-theme.ts),
+// metadataBase turns these relative URLs into full ones.
+export async function generateMetadata({ searchParams }: { searchParams: SearchParams }): Promise<Metadata> {
+  const page = parsePage((await searchParams).page);
+  const title = page === 1 ? 'Blog' : `Blog - Page ${page}`;
+  return {
+    metadataBase: SITE_URL ? new URL(SITE_URL) : undefined,
+    title,
+    description: BLOG_DESCRIPTION,
+    alternates: { canonical: pageHref(page) },
+    openGraph: {
+      title,
+      description: BLOG_DESCRIPTION,
+      type: 'website',
+      url: pageHref(page),
+      siteName: SITE_NAME || undefined,
+    },
+  };
 }
 
 // The page numbers to show: always 1 and the last page, plus the current
@@ -83,6 +107,12 @@ function ArrowIcon({ direction }: { direction: 'left' | 'right' }) {
 // here, so CardsSkeleton is exactly what's shown while this is loading.
 async function BlogGrid({ page }: { page: number }) {
   const { posts, totalPages } = await getPosts(page, PAGE_SIZE);
+  // A page past the end (e.g. ?page=99) shows Next's not-found page instead
+  // of an empty grid, which search engines would flag as a "soft 404". This
+  // runs inside the streamed Suspense boundary, so the status stays 200 and
+  // Next marks the page noindex instead - checking earlier would cost the
+  // skeleton above. Pagination links never point past the last page.
+  if (page > totalPages) notFound();
 
   const arrowClass = 'w-9 h-9 rounded-lg flex items-center justify-center transition-colors';
   const numberClass = 'w-9 h-9 rounded-lg flex items-center justify-center text-[13px] font-semibold transition-colors';
@@ -144,9 +174,8 @@ async function BlogGrid({ page }: { page: number }) {
   );
 }
 
-export default async function BlogIndexPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
-  const { page: pageParam } = await searchParams;
-  const page = Math.max(1, Number.parseInt(pageParam ?? '1', 10) || 1);
+export default async function BlogIndexPage({ searchParams }: { searchParams: SearchParams }) {
+  const page = parsePage((await searchParams).page);
 
   return (
     <main className="min-h-screen bg-white">
@@ -161,7 +190,7 @@ export default async function BlogIndexPage({ searchParams }: { searchParams: Pr
             >
               Blog
             </span>
-            <h2 className="text-4xl md:text-5xl font-bold text-slate-900">All our articles</h2>
+            <h1 className="text-4xl md:text-5xl font-bold text-slate-900">All our articles</h1>
           </div>
 
           {/* key={page} forces a fresh Suspense boundary per page, so

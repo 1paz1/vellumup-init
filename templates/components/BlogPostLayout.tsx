@@ -1,11 +1,12 @@
 // components/BlogPostLayout.tsx
 
-import { BLOG_ACCENT } from '@/lib/blog-theme';
+import { BLOG_ACCENT, BLOG_AUTHOR } from '@/lib/blog-theme';
 
 interface BlogPostLayoutProps {
   title: string;
   coverImage?: string | null;
   coverImageAlt?: string | null; // falls back to title if omitted
+  /** Defaults to BLOG_AUTHOR in lib/blog-theme.ts - with neither, no name is shown */
   authorName?: string;
   authorAvatar?: string | null;
   /** ISO 8601 date string, e.g. "2026-05-28T00:00:00.000Z" */
@@ -34,7 +35,7 @@ function Byline({
   formattedDate,
   readingTimeMinutes,
 }: {
-  authorName: string;
+  authorName?: string;
   authorAvatar?: string | null;
   accentColor: string;
   publishDate: Date;
@@ -43,27 +44,31 @@ function Byline({
 }) {
   return (
     <div className="flex items-center gap-2.5 mt-4 flex-wrap">
-      {authorAvatar ? (
-        // Plain <img>, not next/image: images can come from any host, and
-        // next/image would need each one listed in next.config.
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={authorAvatar}
-          alt={authorName}
-          loading="lazy"
-          className="w-6 h-6 rounded-full object-cover"
-        />
-      ) : (
-        <span
-          className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0"
-          style={{ backgroundColor: accentColor }}
-          aria-hidden="true"
-        >
-          {authorName.charAt(0).toUpperCase()}
-        </span>
+      {authorName && (
+        <>
+          {authorAvatar ? (
+            // Plain <img>, not next/image: images can come from any host, and
+            // next/image would need each one listed in next.config.
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={authorAvatar}
+              alt={authorName}
+              loading="lazy"
+              className="w-6 h-6 rounded-full object-cover"
+            />
+          ) : (
+            <span
+              className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0"
+              style={{ backgroundColor: accentColor }}
+              aria-hidden="true"
+            >
+              {authorName.charAt(0).toUpperCase()}
+            </span>
+          )}
+          <span className="text-[13px] font-semibold text-slate-600">{authorName}</span>
+          <span className="w-px h-3.5 bg-slate-200 shrink-0" aria-hidden="true" />
+        </>
       )}
-      <span className="text-[13px] font-semibold text-slate-600">{authorName}</span>
-      <span className="w-px h-3.5 bg-slate-200 shrink-0" aria-hidden="true" />
       <time dateTime={publishDate.toISOString()} className="text-[13px] text-slate-500">
         {formattedDate}
       </time>
@@ -83,7 +88,7 @@ export function BlogPostLayout({
   title,
   coverImage,
   coverImageAlt,
-  authorName = 'Editorial Team',
+  authorName = BLOG_AUTHOR?.name,
   authorAvatar,
   publishedAt,
   readingTimeMinutes,

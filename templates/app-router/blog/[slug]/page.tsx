@@ -22,7 +22,15 @@ import { PillTableOfContents } from '@/components/PillTableOfContents';
 import { BlogAiSummary } from '@/components/BlogAiSummary';
 import { getArticle, getRelatedPosts } from '@/lib/blog-data';
 import type { Article } from '@/lib/blog-types';
-import { BLOG_ACCENT, DEFAULT_HERO_VARIANT, SHOW_AI_SUMMARY, type HeroVariant } from '@/lib/blog-theme';
+import {
+  BLOG_ACCENT,
+  BLOG_AUTHOR,
+  DEFAULT_HERO_VARIANT,
+  SHOW_AI_SUMMARY,
+  SITE_NAME,
+  SITE_URL,
+  type HeroVariant,
+} from '@/lib/blog-theme';
 
 const RELATED_POSTS_LIMIT = 3;
 
@@ -36,26 +44,30 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
   const title = article.og_title ?? article.title;
   const description = article.og_description ?? article.meta_description ?? undefined;
-  // Relative, not absolute - Next.js emits this as a relative <link
-  // rel="canonical">, which is valid without needing a site-wide base URL
-  // (metadataBase) configured. Same reasoning for openGraph.url below.
+  // Written relative; with SITE_URL set (lib/blog-theme.ts), metadataBase
+  // makes the canonical and openGraph.url full URLs, which share previews
+  // need. Without it they stay relative, which search engines still accept.
   const canonical = `/blog/${article.slug}`;
   const keywords = [article.focus_keyword, ...(article.secondary_keywords ?? [])].filter(
     (k): k is string => !!k,
   );
 
   return {
+    metadataBase: SITE_URL ? new URL(SITE_URL) : undefined,
     title,
     description,
     keywords: keywords.length > 0 ? keywords : undefined,
+    authors: BLOG_AUTHOR ? [{ name: BLOG_AUTHOR.name, url: BLOG_AUTHOR.url }] : undefined,
     alternates: { canonical },
     openGraph: {
       title,
       description,
       type: 'article',
       url: canonical,
+      siteName: SITE_NAME || undefined,
       publishedTime: article.created_at,
       modifiedTime: article.updated_at ?? article.created_at,
+      authors: BLOG_AUTHOR ? [BLOG_AUTHOR.name] : undefined,
       images: article.cover_image ? [article.cover_image] : undefined,
     },
     twitter: {
@@ -171,16 +183,44 @@ function BackToBlogLink({ hasToc }: { hasToc: boolean }) {
   ) : null;
 }
 
+// Structured data wants full URLs. A relative image path such as
+// /images/cover.jpg gets SITE_URL in front once it's set.
+function absoluteUrl(src: string): string {
+  if (!SITE_URL || /^https?:\/\//i.test(src)) return src;
+  return `${SITE_URL}${src.startsWith('/') ? '' : '/'}${src}`;
+}
+
+function formatLongDate(iso: string): string {
+  return new Date(iso).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+}
+
+// The one date the byline shows: the last update when the article was
+// edited at least a day after publishing, otherwise the publish date.
+// updated_at is often equal to created_at, or seconds after it, when an
+// article is first saved, so smaller gaps don't count as an update. Both
+// dates still go to search engines in the structured data.
+function bylineDate(article: Article): string {
+  const oneDay = 24 * 60 * 60 * 1000;
+  const editedLater =
+    !!article.updated_at && Date.parse(article.updated_at) - Date.parse(article.created_at) >= oneDay;
+  return editedLater ? article.updated_at! : article.created_at;
+}
+
 // Full-page-width hero image + title/byline block, rendered above the
 // three-column ToC/body grid (not inside it - the ToC only makes sense
 // beside the article text, not floating alongside the title).
 function ArticleHero({ article, hasToc, variant }: { article: Article; hasToc: boolean; variant: HeroVariant }) {
-  const longDate = new Date(article.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+  const shownDate = bylineDate(article);
+  const longDate = formatLongDate(shownDate);
+  // The author comes from BLOG_AUTHOR in lib/blog-theme.ts. Without one, the
+  // byline shows no name and no avatar - never a made-up one.
+  const authorInitial = BLOG_AUTHOR ? BLOG_AUTHOR.name.charAt(0).toUpperCase() : null;
 
   // Sidebar: hero in a bordered rounded card, title left-aligned directly below it
-  // (not overlapping), then a divider, then a byline "info row" (avatar +
-  // three labeled mini-groups: Written by / Published / Reading time) laid
-  // out horizontally, not stacked into a column. max-w-3xl matches the
+  // (not overlapping), then a divider, then a byline "info row" (avatar and
+  // labeled mini-groups: Written by / Date / Reading time,
+  // each only when there's a value) laid out horizontally, not stacked into
+  // a column. max-w-3xl matches the
   // article text column's own width (same as the elevated variant) so the
   // header lines up with the body below it instead of looking wider/narrower.
   if (variant === 'sidebar') {
@@ -201,20 +241,24 @@ function ArticleHero({ article, hasToc, variant }: { article: Article; hasToc: b
           <div className="relative">
             <BackToBlogLink hasToc={hasToc} />
             <div className="flex items-center gap-5 flex-wrap">
-              <span
-                className="w-9 h-9 rounded-full flex items-center justify-center text-[13px] font-bold text-white shrink-0"
-                style={{ backgroundColor: BLOG_ACCENT }}
-                aria-hidden="true"
-              >
-                E
-              </span>
+              {BLOG_AUTHOR && (
+                <>
+                  <span
+                    className="w-9 h-9 rounded-full flex items-center justify-center text-[13px] font-bold text-white shrink-0"
+                    style={{ backgroundColor: BLOG_ACCENT }}
+                    aria-hidden="true"
+                  >
+                    {authorInitial}
+                  </span>
+                  <div className="flex flex-col">
+                    <span className="text-[11px] font-medium text-slate-400">Written by</span>
+                    <span className="text-[13px] font-semibold text-slate-800">{BLOG_AUTHOR.name}</span>
+                  </div>
+                </>
+              )}
               <div className="flex flex-col">
-                <span className="text-[11px] font-medium text-slate-400">Written by</span>
-                <span className="text-[13px] font-semibold text-slate-800">Editorial Team</span>
-              </div>
-              <div className="flex flex-col">
-                <span className="text-[11px] font-medium text-slate-400">Published</span>
-                <time dateTime={article.created_at} className="text-[13px] font-medium text-slate-600">{longDate}</time>
+                <span className="text-[11px] font-medium text-slate-400">Date</span>
+                <time dateTime={shownDate} className="text-[13px] font-medium text-slate-600">{longDate}</time>
               </div>
               {article.reading_time_minutes ? (
                 <div className="flex flex-col">
@@ -255,17 +299,21 @@ function ArticleHero({ article, hasToc, variant }: { article: Article; hasToc: b
         <h1 className="text-[clamp(26px,3.8vw,44px)] font-bold text-slate-900 leading-[1.2] tracking-tight text-center mt-10">
           {article.title}
         </h1>
-        <div className="flex items-center justify-center gap-2 sm:gap-3 mt-6">
-          <span
-            className="w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-[11px] sm:text-[12px] font-bold text-white shrink-0"
-            style={{ backgroundColor: BLOG_ACCENT }}
-            aria-hidden="true"
-          >
-            E
-          </span>
-          <span className="text-[13px] sm:text-[14px] font-semibold text-slate-700">Editorial Team</span>
-          <span className="w-1 h-1 rounded-full bg-slate-300 shrink-0" aria-hidden="true" />
-          <time dateTime={article.created_at} className="text-[13px] sm:text-[14px] text-slate-500">{longDate}</time>
+        <div className="flex items-center justify-center flex-wrap gap-2 sm:gap-3 mt-6">
+          {BLOG_AUTHOR && (
+            <>
+              <span
+                className="w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-[11px] sm:text-[12px] font-bold text-white shrink-0"
+                style={{ backgroundColor: BLOG_ACCENT }}
+                aria-hidden="true"
+              >
+                {authorInitial}
+              </span>
+              <span className="text-[13px] sm:text-[14px] font-semibold text-slate-700">{BLOG_AUTHOR.name}</span>
+              <span className="w-1 h-1 rounded-full bg-slate-300 shrink-0" aria-hidden="true" />
+            </>
+          )}
+          <time dateTime={shownDate} className="text-[13px] sm:text-[14px] text-slate-500">{longDate}</time>
           {article.reading_time_minutes ? (
             <>
               <span className="w-1 h-1 rounded-full bg-slate-300 shrink-0" aria-hidden="true" />
@@ -284,8 +332,8 @@ function ArticleHero({ article, hasToc, variant }: { article: Article; hasToc: b
   }
 
   // Elevated (default): full-bleed hero image with a dark-to-white gradient
-  // scrim, colored avatar-initial circle, "|" separators, border under the
-  // header.
+  // scrim, small avatar-initial circle (with an author set), "|" separators,
+  // border under the header.
   return (
     <>
       {article.cover_image && (
@@ -307,16 +355,20 @@ function ArticleHero({ article, hasToc, variant }: { article: Article; hasToc: b
             {article.title}
           </h1>
           <div className="flex items-center gap-2.5 mt-4 flex-wrap">
-            <span
-              className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0"
-              style={{ backgroundColor: BLOG_ACCENT }}
-              aria-hidden="true"
-            >
-              E
-            </span>
-            <span className="text-[13px] font-semibold text-slate-600">Editorial Team</span>
-            <span className="w-px h-3.5 bg-slate-200 shrink-0" aria-hidden="true" />
-            <time dateTime={article.created_at} className="text-[13px] text-slate-500">
+            {BLOG_AUTHOR && (
+              <>
+                <span
+                  className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0"
+                  style={{ backgroundColor: BLOG_ACCENT }}
+                  aria-hidden="true"
+                >
+                  {authorInitial}
+                </span>
+                <span className="text-[13px] font-semibold text-slate-600">{BLOG_AUTHOR.name}</span>
+                <span className="w-px h-3.5 bg-slate-200 shrink-0" aria-hidden="true" />
+              </>
+            )}
+            <time dateTime={shownDate} className="text-[13px] text-slate-500">
               {longDate}
             </time>
             {article.reading_time_minutes ? (
@@ -364,32 +416,55 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
     ? splitIntroMarkdown(article.content)
     : { intro: '', rest: article.content };
 
-  // Article structured data - lets search engines and AI answer engines
-  // parse the article's shape directly instead of guessing from prose. No
-  // author/publisher/url fields: the article fields have no author concept,
-  // and url/mainEntityOfPage need an absolute site URL this template
-  // deliberately doesn't assume (see generateMetadata's canonical comment) -
-  // both are optional in the Article schema, so omitting them is valid.
+  // Structured data - lets search engines and AI answer engines read the
+  // article's shape directly instead of guessing from prose. Everything here
+  // comes from the article or from the Site details in lib/blog-theme.ts;
+  // whatever isn't set there (author, site name, site URL) is left out
+  // rather than guessed, since all of it is optional in schema.org.
   const jsonLdKeywords = [article.focus_keyword, ...(article.secondary_keywords ?? [])].filter(
     (k): k is string => !!k,
   );
-  const articleJsonLd = {
-    '@context': 'https://schema.org',
-    '@type': 'Article',
+  const articleUrl = SITE_URL ? `${SITE_URL}/blog/${article.slug}` : undefined;
+  const blogPosting = {
+    '@type': 'BlogPosting',
     headline: article.title,
     description: article.meta_description ?? article.og_description ?? undefined,
-    image: article.cover_image ? [article.cover_image] : undefined,
+    image: article.cover_image ? [absoluteUrl(article.cover_image)] : undefined,
     datePublished: article.created_at,
     dateModified: article.updated_at ?? article.created_at,
     keywords: jsonLdKeywords.length > 0 ? jsonLdKeywords.join(', ') : undefined,
     wordCount: article.word_count ?? undefined,
+    url: articleUrl,
+    mainEntityOfPage: articleUrl,
+    author: BLOG_AUTHOR
+      ? { '@type': BLOG_AUTHOR.type, name: BLOG_AUTHOR.name, url: BLOG_AUTHOR.url }
+      : undefined,
+    publisher: SITE_NAME ? { '@type': 'Organization', name: SITE_NAME, url: SITE_URL || undefined } : undefined,
+  };
+  // Breadcrumbs need full URLs, so they're only added once SITE_URL is set.
+  const breadcrumbs = articleUrl
+    ? {
+        '@type': 'BreadcrumbList',
+        itemListElement: [
+          { '@type': 'ListItem', position: 1, name: SITE_NAME || 'Home', item: SITE_URL },
+          { '@type': 'ListItem', position: 2, name: 'Blog', item: `${SITE_URL}/blog` },
+          { '@type': 'ListItem', position: 3, name: article.title, item: articleUrl },
+        ],
+      }
+    : undefined;
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@graph': breadcrumbs ? [blogPosting, breadcrumbs] : [blogPosting],
   };
 
   return (
     <div className="bg-white">
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJsonLd) }}
+        // "<" is escaped so text from the article (a title containing
+        // "</script>", say) can't close this tag early - the fix Next.js's
+        // JSON-LD guide recommends.
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c') }}
       />
 
       <ArticleHero article={article} hasToc={hasToc} variant={DEFAULT_HERO_VARIANT} />

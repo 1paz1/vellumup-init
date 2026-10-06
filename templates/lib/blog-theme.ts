@@ -1,8 +1,65 @@
 // lib/blog-theme.ts
 //
-// Single place to re-theme the blog. Change BLOG_ACCENT and every page/
-// component that imports from here picks it up automatically - no other
-// file needs to change.
+// Single place to configure the blog: your site details first, then colors
+// and style variants. Every page and component reads from here, so no
+// other file needs to change.
+
+// ── Site details ─────────────────────────────────────────────────────────
+// Fill these in once. Search engines, AI search and share previews use
+// them. Anything left empty is simply left out - nothing breaks.
+//
+// A few one-time steps outside this file, in your site's own settings:
+// - Sitemap: add /blog and every post (/blog/<slug>) to your site's
+//   sitemap, using each post's updated_at as its lastmod, so search
+//   engines find new posts quickly.
+// - robots.txt: to appear in search and AI answers, don't block Googlebot,
+//   Bingbot, OAI-SearchBot (ChatGPT search), PerplexityBot or
+//   Claude-SearchBot. Blocking only the AI training crawlers (GPTBot,
+//   ClaudeBot) keeps you in those answers.
+// - Submit your sitemap in Google Search Console and Bing Webmaster Tools
+//   (Bing also powers Microsoft Copilot).
+
+/**
+ * Your site's public address, e.g. 'https://example.com'. With it, canonical
+ * URLs, share links and structured data use full URLs. Without it they stay
+ * relative.
+ *
+ * Read from NEXT_PUBLIC_SITE_URL, or on Vercel from your production domain
+ * automatically. You can also replace the whole expression with your URL.
+ */
+export const SITE_URL: string = (
+  process.env.NEXT_PUBLIC_SITE_URL ||
+  (process.env.NEXT_PUBLIC_VERCEL_PROJECT_PRODUCTION_URL
+    ? `https://${process.env.NEXT_PUBLIC_VERCEL_PROJECT_PRODUCTION_URL}`
+    : '')
+).replace(/\/+$/, '');
+
+/**
+ * Your site or brand name, e.g. 'Acme'. Shown as the site name in share
+ * previews and given to search engines as the publisher. Leave '' to omit.
+ */
+export const SITE_NAME: string = '';
+
+/** The blog index page's description - shown in search results. */
+export const BLOG_DESCRIPTION: string = 'Guides and updates.';
+
+/**
+ * Who writes the posts - shown in the article byline and given to search
+ * engines as the author. Use a real person or your organization; Google
+ * treats made-up names as a trust problem. Leave null to show no name.
+ *
+ * Example: { type: 'Person', name: 'Jane Doe', url: 'https://example.com/about' }
+ * (url is optional - a page about the author helps search engines.)
+ */
+export const BLOG_AUTHOR: BlogAuthor | null = null;
+
+export interface BlogAuthor {
+  type: 'Person' | 'Organization';
+  name: string;
+  url?: string;
+}
+
+// ── Look ─────────────────────────────────────────────────────────────────
 
 /** The blog's one accent color - used for links, badges, active states, icons. */
 export const BLOG_ACCENT = '#4A68E5';
@@ -50,13 +107,16 @@ export const DEFAULT_KEY_TAKEAWAYS_VARIANT: KeyTakeawaysVariant = 'soft';
 /**
  * Article hero/title/byline block look, used by the article page's own
  * header (hero image + title + byline row above the article body).
- * - 'elevated' (default): full-bleed hero image, colored avatar-initial
- *   circle, "|" separators. Border under the whole header block.
- * - 'minimal': same shape, lighter touch - centered, no avatar circle, "•"
- *   bullet separators, no border under the header.
- * - 'sidebar': compact byline "info table" instead of one inline row - a
- *   small logo/avatar plus three labeled mini-columns (Written by /
- *   Published / Reading time), closer to a byline card than a sentence.
+ * - 'elevated' (default): full-bleed hero image, "|" separators. Border
+ *   under the whole header block.
+ * - 'minimal': image in a rounded card, everything centered, "•" bullet
+ *   separators, no border under the header.
+ * - 'sidebar': compact byline "info table" instead of one inline row -
+ *   labeled mini-columns (Written by / Date / Reading
+ *   time), closer to a byline card than a sentence.
+ * All three show the author's initial and name only when BLOG_AUTHOR is
+ * set. The single date shown is the last update when the article was
+ * edited later, otherwise the publish date.
  */
 export type HeroVariant = 'elevated' | 'minimal' | 'sidebar';
 export const DEFAULT_HERO_VARIANT: HeroVariant = 'elevated';

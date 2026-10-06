@@ -226,7 +226,7 @@ export async function run(argv) {
         `  ${pc.cyan(installCommand(detection.packageManager, ['@supabase/supabase-js']))}\n` +
         'or, if you use a different database, replace the Supabase calls with\n' +
         'your own: upsertArticle()/markArticleDraft() in the route, and the\n' +
-        'three functions in lib/blog-data.ts. Each file marks the spot.',
+        'functions in lib/blog-data.ts. Each file marks the spot.',
       'Database client',
     );
   }
