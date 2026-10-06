@@ -14,7 +14,7 @@
 npx vellumup-init
 ```
 
-https://github.com/user-attachments/assets/e03e0451-7477-4d23-95d8-cdc7d2c8414b
+https://github.com/user-attachments/assets/a991ef44-c079-4330-b6e9-30c85626b31e
 
 vellumup-init looks at your Next.js project, asks only what it can't work out
 on its own, and writes a finished blog into it: pages, components, a data
