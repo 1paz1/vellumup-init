@@ -23,7 +23,8 @@ import remarkGfm from 'remark-gfm';
 import { BlogSection } from '@/components/BlogSection';
 import { BlogKeyTakeaways } from '@/components/BlogKeyTakeaways';
 import { PillTableOfContents } from '@/components/PillTableOfContents';
-import { BLOG_ACCENT, DEFAULT_HERO_VARIANT, type HeroVariant } from '@/lib/blog-theme';
+import { BlogAiSummary } from '@/components/BlogAiSummary';
+import { BLOG_ACCENT, DEFAULT_HERO_VARIANT, SHOW_AI_SUMMARY, type HeroVariant } from '@/lib/blog-theme';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -314,6 +315,12 @@ function ArticleHero({ article, hasToc, variant }: { article: Article; hasToc: b
                   <span className="text-[13px] font-medium text-slate-600">{article.reading_time_minutes} min</span>
                 </div>
               ) : null}
+              {/* Same label-over-value shape as the groups before it, pushed to the row's far end */}
+              {SHOW_AI_SUMMARY && (
+                <div className="sm:ms-auto">
+                  <BlogAiSummary title={article.title} variant="sidebar" />
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -360,6 +367,12 @@ function ArticleHero({ article, hasToc, variant }: { article: Article; hasToc: b
             </>
           ) : null}
         </div>
+        {/* Centered on its own line under the centered byline */}
+        {SHOW_AI_SUMMARY && (
+          <div className="mt-5">
+            <BlogAiSummary title={article.title} variant="minimal" />
+          </div>
+        )}
       </div>
     );
   }
@@ -408,6 +421,12 @@ function ArticleHero({ article, hasToc, variant }: { article: Article; hasToc: b
                 </span>
               </>
             ) : null}
+            {/* End of the same row on sm+, wraps onto its own line on mobile */}
+            {SHOW_AI_SUMMARY && (
+              <div className="w-full sm:w-auto sm:ms-auto mt-2 sm:mt-0">
+                <BlogAiSummary title={article.title} variant="elevated" />
+              </div>
+            )}
           </div>
         </div>
       </div>

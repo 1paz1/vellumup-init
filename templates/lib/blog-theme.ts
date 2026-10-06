@@ -61,3 +61,12 @@ export const DEFAULT_KEY_TAKEAWAYS_VARIANT: KeyTakeawaysVariant = 'soft';
  */
 export type HeroVariant = 'elevated' | 'minimal' | 'sidebar';
 export const DEFAULT_HERO_VARIANT: HeroVariant = 'elevated';
+
+/**
+ * "Summarize with AI" buttons in the article byline (ChatGPT, Claude,
+ * Perplexity) - each opens the reader's own assistant with a ready prompt
+ * pointing at the article. Styled to match whichever hero variant is active.
+ * Set to false to hide them. The prompt itself lives in
+ * components/BlogAiSummary.tsx.
+ */
+export const SHOW_AI_SUMMARY = true;

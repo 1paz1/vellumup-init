@@ -64,7 +64,7 @@ export function buildFilePlan(detection, answers) {
       // Each component imports its accent color from @/lib/blog-theme, so it
       // needs the same alias rewrite as the article page when the project
       // has no working "@/*" alias.
-      ...['BlogPostLayout', 'BlogSection', 'BlogCard', 'BlogKeyTakeaways', 'PillTableOfContents'].map(
+      ...['BlogPostLayout', 'BlogSection', 'BlogCard', 'BlogKeyTakeaways', 'PillTableOfContents', 'BlogAiSummary'].map(
         (name) => ({
           templatePath: template('components', `${name}.tsx`),
           targetPath: target('components', `${name}.tsx`),

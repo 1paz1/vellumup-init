@@ -60,6 +60,6 @@ test('route-only mode writes just the route, full mode adds pages and components
   const full = buildFilePlan(APP_DETECTION, { mode: 'full', lang: 'en' });
 
   assert.equal(routeOnly.length, 1);
-  // route + 2 pages + 5 components + 1 theme config
-  assert.equal(full.length, 9);
+  // route + 2 pages + 6 components + 1 theme config
+  assert.equal(full.length, 10);
 });

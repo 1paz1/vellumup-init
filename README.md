@@ -27,6 +27,7 @@ your-project/
 │   ├── BlogSection.tsx           # card grid section (index + related posts)
 │   ├── BlogCard.tsx              # the card itself - shared by index and related posts
 │   ├── BlogKeyTakeaways.tsx      # callout box
+│   ├── BlogAiSummary.tsx         # "Summarize with AI" buttons (ChatGPT, Claude, Perplexity)
 │   └── PillTableOfContents.tsx   # responsive ToC (sidebar / bottom pill)
 ├── lib/blog-theme.ts             # accent color + style variants - the one file to re-theme the blog
 ├── vellumup/articles.sql         # articles schema (standard PostgreSQL - Supabase, psql, any client)
@@ -51,6 +52,21 @@ inline:
 
 Set the `DEFAULT_*` constant for whichever one you want, or override per
 instance via the component's `variant` prop.
+
+## Summarize with AI
+
+Every article byline gets a small "Summarize with AI" row: ChatGPT, Claude
+and Perplexity buttons, each in its own brand color, styled to match the
+active hero variant. A click opens the reader's own assistant in a new tab
+with a ready prompt pointing at the article - just links, no API keys or
+server calls. Only assistants that accept a prompt in the URL are included.
+
+The prompt asks for a summary only (overview, key points, practical steps,
+in the article's language) - edit `PROMPT_TEMPLATE` in
+`components/BlogAiSummary.tsx` to change it. It deliberately does not tell
+the assistant to "remember" your site: Microsoft documented that pattern as
+"AI Recommendation Poisoning". Set `SHOW_AI_SUMMARY = false` in
+`lib/blog-theme.ts` to hide the row.
 
 "Webhook route only" mode writes just the receiver route, the SQL file, and the
 `VELLUMUP_WEBHOOK_SECRET=` placeholder - for projects that already have their
